@@ -3114,7 +3114,10 @@ window.LevelObject = class LevelObject {
       this._addCollisionToSection(speedObj);
     } else if (objectDef && String(objectDef.type).indexOf("custom_") === 0) {
       const WebDashers = window.WebDashers;
-      const customObject = WebDashers ? WebDashers.decodeCustomLevelText(levelObj.text) : null;
+      let customObject = WebDashers ? WebDashers.decodeCustomLevelText(levelObj.text) : null;
+      if (!customObject && WebDashers && WebDashers.engine) {
+        try { customObject = WebDashers.engine.createObject({ type: String(objectDef.type) }); } catch (e) { customObject = null; }
+      }
       if (customObject) {
         const cw = (objectDef.gridW || 1) * a;
         const ch = (objectDef.gridH || 1) * a;

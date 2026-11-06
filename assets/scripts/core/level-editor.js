@@ -1840,11 +1840,11 @@ class LevelEditor {
         { id: "blocks",  icon: "tab1", types: ["solid", "soliddeco"] },
         { id: "slopes",  icon: "tab6", types: ["slope"] },
         { id: "hazards", icon: "tab2", types: ["hazard", "spike"] },
-        { id: "orbs",    icon: "tab3", types: ["ring", "pad", "portal", "speed", "coin"] },
+        { id: "orbs",    icon: "tab3", types: ["ring", "pad", "portal", "speed", "coin", "custom_orb", "custom_pad", "custom_portal", "custom_portal_orb", "custom_portal_pad", "custom_gamemode", "custom_interactive"] },
         { id: "pixel",   icon: "tab7", types: ["pixel"] },
         { id: "particle", icon: "tab8", types: ["particle"] },
         { id: "deco",    icon: "tab4", types: ["deco"] },
-        { id: "triggers",icon: "tab5", types: ["trigger"] },
+        { id: "triggers",icon: "tab5", types: ["trigger", "custom_trigger"] },
     ];
 
     this._gridContainer = this.add.container(0, 0);
