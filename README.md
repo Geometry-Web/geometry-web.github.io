@@ -8,7 +8,7 @@
   />
 
   <p>
-    <strong>A modded Geometry Dash browser experience with additional features, improvements, and more!</strong>
+    <strong>A fork of web dashers</strong>
   </p>
 
   <a href="https://geometry-web.github.io/" target="_blank">
