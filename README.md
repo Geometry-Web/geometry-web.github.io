@@ -20,7 +20,7 @@
     />
   </a>
   &nbsp;
-  <a href="https://github.com/Geometry-Web/geometry-web.github.io/edit/main/README.md"  target="_blank">
+  <a href="https://github.com/Geometry-Web/geometry-web.github.io"  target="_blank">
     <img
       width="279"
       height="89"
