@@ -1,5 +1,5 @@
 > [!NOTE]
-> Geometry Web is currently under active development and is not yet complete. Some features may be unfinished, experimental, or subject to change. Please report any bugs you encounter in our Discord server, specifically in the `#bug-report` forum, or through the Issues page on this repository. Thank you for your support!
+> Geometry Web is currently under active development and is not yet complete. Some features may be unfinished, experimental, or subject to change. Please report any bugs you encounter through the Issues page on this repository. Thank you for your support!
 
 <div align="center">
   <img
