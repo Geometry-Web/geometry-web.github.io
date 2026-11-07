@@ -20,14 +20,7 @@
     />
   </a>
   &nbsp;
-  <a href="https://github.com/Geometry-Web/geometry-web.github.io"  target="_blank">
-    <img
-      width="279"
-      height="89"
-      alt="Join the Discord"
-      src="https://github.com/user-attachments/assets/285a9de1-e72a-491a-9dd4-3d31887e73b2"
-    />
-  </a>
+
 </div>
 
 ---
