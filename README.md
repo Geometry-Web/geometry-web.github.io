@@ -4,7 +4,7 @@
 <div align="center">
   <img
     alt="Geometry Web"
-    src="./wd_branding/wordmark/wordmark_1080.png"
+    src=".GeometryWebicion.png"
   />
 
   <p>
