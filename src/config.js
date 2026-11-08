@@ -11,38 +11,43 @@ GD.C = {
     // Design resolution (world coordinates are in these units).
     designW: 960,
     designH: 540,
+    title: 'WEB DASHERS',
+
+    // World scale: applied to objects at creation so their sizes stay in sync
+    // with the larger player. Physics is scaled to match, so jump feel is kept.
+    worldScale: 1.33,
 
     // Ground: the playable floor is a horizontal line at y = groundY.
     groundY: 60,
 
     // Player dimensions (square side for cube/robot, diameter for ball/spider).
-    playerSize: 30,
-    shipWidth: 42,
-    shipHeight: 24,
+    playerSize: 40,
+    shipWidth: 56,
+    shipHeight: 32,
 
     // Core movement.
-    baseSpeed: 320,       // horizontal auto-scroll speed (px/s)
+    baseSpeed: 427,       // horizontal auto-scroll speed (px/s)
     speedMultiplier: 1.0, // multiplied by speed portals (0.5x / 1x / 2x / 3x / 4x)
 
     // Cube physics (units: px, px/s, px/s^2; y increases upward).
-    gravity: 3000,        // downward acceleration magnitude
-    jumpVelocity: 780,    // initial upward velocity of a jump
+    gravity: 4000,        // downward acceleration magnitude
+    jumpVelocity: 1040,   // initial upward velocity of a jump
 
     // Ship physics.
-    shipGravity: 2200,
-    shipThrust: 3600,     // upward acceleration while holding (net +1400 held)
+    shipGravity: 2933,
+    shipThrust: 4800,     // upward acceleration while holding (net positive held)
 
     // Ball physics.
-    ballGravity: 3000,
-    ballFlipVelocity: 700, // impulse applied when flipping gravity
+    ballGravity: 4000,
+    ballFlipVelocity: 933, // impulse applied when flipping gravity
 
     // UFO / robot / spider / swing physics.
-    ufoJumpVelocity: 640,     // small mid-air hop impulse
-    robotMaxCharge: 0.4,      // seconds to full charge
-    robotJumpMin: 420,        // lowest release jump
-    robotJumpMax: 1150,       // full-charge jump
-    swingGravity: 2400,
-    swingFlipVelocity: 640,
+    ufoJumpVelocity: 853,    // small mid-air hop impulse
+    robotMaxCharge: 0.4,     // seconds to full charge
+    robotJumpMin: 560,       // lowest release jump
+    robotJumpMax: 1533,      // full-charge jump
+    swingGravity: 3200,
+    swingFlipVelocity: 853,
 
     // Size portal multipliers.
     sizeSmall: 0.72,
@@ -93,9 +98,8 @@ GD.C = {
     saveKeyLevels: 'gdweb_custom_levels',
     saveKeyProgress: 'gdweb_progress',
 
-    // Original Geometry Dash asset integration (personal, local use).
-    // Set to the served path of your GD Resources folder, e.g. '../Resources/'
-    // when serving the E:\GDWEB folder. Leave '' to use built-in art.
+    // Original-asset integration is DISABLED by design: Web Dashers uses its own
+    // original graphics (no Geometry Dash assets). Keep this empty.
     assetsRoot: '',
 };
 

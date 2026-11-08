@@ -11,7 +11,8 @@
         COCOS2D_DEBUG: 0,       // 0 = off, 1 = basic, 2 = full
         box2d: false,           // custom physics is used instead
         chipmunk: false,
-        showFPS: true,
+        // Debug stats appear only when ?debug=1 is in the URL.
+        showFPS: (typeof location !== 'undefined' && location.search.indexOf('debug=1') !== -1),
         frameRate: 60,
         loadExtension: false,
         renderMode: 0,          // 0 = auto (WebGL where supported; matches cc.DrawNode)

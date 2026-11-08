@@ -40,24 +40,24 @@ struct Input {
 };
 
 struct Config {
-    float gravity = 3000.f;
-    float jumpVelocity = 780.f;
-    float shipGravity = 2200.f;
-    float shipThrust = 3600.f;
-    float ballGravity = 3000.f;
-    float ballFlipVelocity = 700.f;
-    float baseSpeed = 320.f;
+    float gravity = 4000.f;
+    float jumpVelocity = 1040.f;
+    float shipGravity = 2933.f;
+    float shipThrust = 4800.f;
+    float ballGravity = 4000.f;
+    float ballFlipVelocity = 933.f;
+    float baseSpeed = 427.f;
     float groundY = 60.f;
     float ceilingY = 540.f;
     float jumpRotation = 180.f;
-    float shipWidth = 42.f;
-    float shipHeight = 24.f;
-    float ufoJumpVelocity = 640.f;
+    float shipWidth = 56.f;
+    float shipHeight = 32.f;
+    float ufoJumpVelocity = 853.f;
     float robotMaxCharge = 0.4f;
-    float robotJumpMin = 420.f;
-    float robotJumpMax = 1150.f;
-    float swingGravity = 2400.f;
-    float swingFlipVelocity = 640.f;
+    float robotJumpMin = 560.f;
+    float robotJumpMax = 1533.f;
+    float swingGravity = 3200.f;
+    float swingFlipVelocity = 853.f;
     float sizeSmall = 0.72f;
     float sizeBig = 1.32f;
 };

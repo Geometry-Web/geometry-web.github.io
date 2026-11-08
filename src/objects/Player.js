@@ -10,15 +10,16 @@ GD.Player = (function () {
 
     function shapeFor(mode) {
         var S = C.playerSize;
+        var A = GD.Assets;
         switch (mode) {
-            case M.SHIP: return T.sprite('ship', C.shipWidth, C.shipHeight, T.shipIcon);
-            case M.BALL: return T.sprite('ball', S, S, T.ballIcon);
-            case M.WAVE: return T.sprite('wave', S, S, T.waveIcon);
-            case M.ROBOT: return T.sprite('robot', S, S, T.robotFace);
-            case M.SPIDER: return T.sprite('spider', S, S, T.spiderIcon);
-            case M.SWING: return T.sprite('swing', S, S, T.swingIcon);
-            case M.UFO: return T.sprite('ufo', S, S, T.ufoIcon);
-            default: return T.sprite('cube', S, S, T.cubeFace);
+            case M.SHIP: return A.sizedSprite(A.FRAMES.ship, C.shipWidth) || T.sprite('ship', C.shipWidth, C.shipHeight, T.shipIcon);
+            case M.BALL: return A.sizedSprite(A.FRAMES.ball, S) || T.sprite('ball', S, S, T.ballIcon);
+            case M.UFO: return A.sizedSprite(A.FRAMES.ufo, S) || T.sprite('ufo', S, S, T.ufoIcon);
+            case M.WAVE: return A.sizedSprite(A.FRAMES.wave, S) || T.sprite('wave', S, S, T.waveIcon);
+            case M.ROBOT: return A.sizedSprite(A.FRAMES.robot, S) || T.sprite('robot', S, S, T.robotFace);
+            case M.SPIDER: return A.sizedSprite(A.FRAMES.spider, S) || T.sprite('spider', S, S, T.spiderIcon);
+            case M.SWING: return A.sizedSprite(A.FRAMES.swing, S) || T.sprite('swing', S, S, T.swingIcon);
+            default: return A.sizedSprite(A.FRAMES.cube, S) || T.sprite('cube', S, S, T.cubeFace);
         }
     }
 

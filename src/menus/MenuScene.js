@@ -59,12 +59,13 @@ GD.scenes.MenuScene = cc.Scene.extend({
         this.addChild(this.bgShapes, 1);
 
         // Title.
-        var title = R.label('GEOMETRY DASH', 84, [255, 255, 255], 'Arial Bold');
+        var title = R.label(GD.C.title, 84, [255, 255, 255], 'Arial Bold');
         title.setPosition(cc.p(s.width / 2, s.height * 0.84));
         this.addChild(title);
 
-        // Player icon preview.
-        this.playerPreview = GD.Textures.sprite('preview', C.playerSize * 2.4, C.playerSize * 2.4, GD.Textures.cubeFace);
+        // Player icon preview (real atlas frame when loaded, else procedural).
+        this.playerPreview = GD.Assets.sizedSprite(GD.Assets.FRAMES.cube, C.playerSize * 2.4) ||
+            GD.Textures.sprite('preview', C.playerSize * 2.4, C.playerSize * 2.4, GD.Textures.cubeFace);
         this.playerPreview.setPosition(cc.p(s.width / 2, s.height * 0.64));
         this.addChild(this.playerPreview);
 

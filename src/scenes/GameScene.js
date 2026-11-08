@@ -97,19 +97,17 @@ GD.scenes.GameScene = cc.Scene.extend({
         GD.Audio.startMusic();
     },
 
-    // Rolling hills/clouds drawn as soft dots; scroll slower than the world.
+    // Layered parallax: a handful of large soft circles (subtle depth, no clutter).
     _buildParallax: function (color, spacing, factor, alpha) {
         var C = GD.C, R = GD.Renderer;
         var n = cc.DrawNode.create();
-        var cover = Math.max(C.designW * 3, this.loaded.finishX + 2000);
-        var border = R.f(color[0], color[1], color[2], alpha);
-        var transparent = R.f(color[0], color[1], color[2], 0);
-        for (var x = 0; x <= cover; x += spacing) {
-            var size = 50 + 130 * Math.abs(Math.sin(x * 0.003));
-            var y = C.groundY + 70 + 200 * Math.abs(Math.sin(x * 0.002 + 1.7));
-            var hw = size / 2;
-            n.drawPoly([cc.p(x - hw, y - hw), cc.p(x + hw, y - hw),
-                        cc.p(x + hw, y + hw), cc.p(x - hw, y + hw)], transparent, 6, border);
+        var cover = Math.max(C.designW * 2.5, this.loaded.finishX + 1500);
+        var count = 9;
+        for (var i = 0; i < count; i++) {
+            var x = (i / (count - 1)) * cover;
+            var y = C.groundY + 70 + 200 * Math.abs(Math.sin(i * 2.1 + 0.6));
+            var r = 70 + 120 * Math.abs(Math.sin(i * 1.7 + 0.3));
+            n.drawDot(cc.p(x, y), r, R.f(color[0], color[1], color[2], alpha));
         }
         n._parallaxFactor = factor;
         return n;
@@ -189,6 +187,7 @@ GD.scenes.GameScene = cc.Scene.extend({
         this.hud.addChild(this.msgLabel);
 
         this._buildPauseMenu(s);
+        this._buildDeathOverlay(s);
     },
 
     _buildPauseMenu: function (s) {
@@ -204,6 +203,27 @@ GD.scenes.GameScene = cc.Scene.extend({
         this.pauseLayer.addChild(hint);
         this.addChild(this.pauseLayer, 20);
         this.pauseLayer.setVisible(false);
+    },
+
+    _buildDeathOverlay: function (s) {
+        var R = GD.Renderer;
+        this.deathLayer = new cc.Layer();
+        var dim = R.layer(s.width, s.height, [12, 6, 24, 150]);
+        this.deathLayer.addChild(dim, 0);
+        this.deathTitle = R.label('GAME OVER', 48, [255, 96, 96], 'Arial Bold');
+        this.deathTitle.setPosition(cc.p(s.width / 2, s.height * 0.62));
+        this.deathLayer.addChild(this.deathTitle);
+        this.deathProgress = R.label('', 24, [255, 255, 255]);
+        this.deathProgress.setPosition(cc.p(s.width / 2, s.height * 0.52));
+        this.deathLayer.addChild(this.deathProgress);
+        this.deathAttempt = R.label('', 20, [200, 210, 235]);
+        this.deathAttempt.setPosition(cc.p(s.width / 2, s.height * 0.46));
+        this.deathLayer.addChild(this.deathAttempt);
+        var hint = R.label('Tap or press R to retry', 18, [255, 224, 90]);
+        hint.setPosition(cc.p(s.width / 2, s.height * 0.38));
+        this.deathLayer.addChild(hint);
+        this.addChild(this.deathLayer, 20);
+        this.deathLayer.setVisible(false);
     },
 
     update: function (dt) {
@@ -228,7 +248,11 @@ GD.scenes.GameScene = cc.Scene.extend({
             this._updateHud(st);
         } else if (this.dead) {
             this.deathTimer -= dt;
-            if (this.deathTimer <= 0) { this._restart(); }
+            if (this.deathGrace > 0) this.deathGrace -= dt;
+            if (this.deathTimer <= 0 || GD.Input.restartPressed ||
+                (this.deathGrace <= 0 && GD.Input.pressed)) {
+                this._restart();
+            }
         } else if (this.finished) {
             this.finishTimer -= dt;
             if (this.finishTimer <= 0 || GD.Input.pressed) { this._backToMenu(); }
@@ -340,12 +364,17 @@ GD.scenes.GameScene = cc.Scene.extend({
         this.dead = true;
         this.running = false;
         this.sim.dead = true;
-        this.deathTimer = GD.C.restartDelay;
-        this.shake = 18;
+        this.deathTimer = 1.6;   // auto-retry after a beat; can retry sooner
+        this.deathGrace = 0.3;   // avoid re-triggering on the death tap
+        this.shake = 20;
         GD.Audio.play('death');
         GD.Audio.stopMusic();
-        GD.Particles.ccBurst(this.world, this.sim.x, this.sim.y, GD.C.colorPlayer, { count: 50, speed: 320, life: 0.8, gravity: -500, size: 8 });
-        this.msgLabel.setString('Ouch!');
+        GD.Particles.ccBurst(this.world, this.sim.x, this.sim.y, GD.C.colorPlayer, { count: 70, speed: 380, life: 0.9, gravity: -450, size: 9 });
+        var pct = this.loaded.finishX > 0 ? Math.round(GD.math.clamp(this.sim.x / this.loaded.finishX, 0, 1) * 100) : 0;
+        this.deathProgress.setString('Progress  ' + pct + '%');
+        this.deathAttempt.setString('Attempt ' + this.attempts);
+        this.deathLayer.setVisible(true);
+        this.msgLabel.setString('');
     },
 
     _restart: function () {
@@ -369,6 +398,7 @@ GD.scenes.GameScene = cc.Scene.extend({
         this.trailHistory = [];
         GD.Particles.clear(this.particles);
         this.msgLabel.setString('');
+        this.deathLayer.setVisible(false);
         GD.Audio.startMusic();
     },
 
