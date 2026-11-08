@@ -98,9 +98,10 @@ GD.C = {
     saveKeyLevels: 'gdweb_custom_levels',
     saveKeyProgress: 'gdweb_progress',
 
-    // Original-asset integration is DISABLED by design: Web Dashers uses its own
-    // original graphics (no Geometry Dash assets). Keep this empty.
-    assetsRoot: '',
+    // Original Geometry Dash asset integration (local, personal use).
+    // Loads ../Resources/* at runtime from your own install. Serve the PARENT
+    // folder (serve.py does this) so Resources/ is reachable over HTTP.
+    assetsRoot: '../Resources/',
 };
 
 // Player mode enum (shared with the C++ runtime / WASM ABI).
