@@ -1,72 +1,87 @@
-# Geometry Web
+> [!NOTE]
+> Geometry Web is currently being remade as a Cocos2d project and is still under active development. The project is not yet complete, and some features may be unfinished or subject to change. Please report any bugs you encounter through our Discord server or the Issues page on this repository. Thank you for your support!
 
-A **playable, original** Geometry-Dash-style side-scroller built on the
-[cocos2d-html5](https://github.com/cocos2d/cocos2d-html5) framework (MIT),
-with an optional C++20 gameplay runtime that can be compiled to WebAssembly.
+<div align="center">
+  <img
+    alt="Geometry Web"
+    src="./wd_branding/wordmark/wordmark_1080.png"
+  />
 
-This is an **independent implementation** — not a copy of Geometry Dash. The
-`GD-Decompiled/` workspace was used only as a *design/architecture reference*
-(names of systems and standard genre mechanics), never as a source to copy. All
-code and assets here are original; visuals and audio are generated procedurally.
+  <p>
+    <strong>A Cocos2d-based Geometry Dash remake with additional features and improvements!</strong>
+  </p>
 
-## Status
+  <a href="https://web-dashers.github.io/" target="_blank">
+    <img
+      width="279"
+      height="89"
+      alt="Play on Web"
+      src="https://github.com/user-attachments/assets/830fc500-f289-4b96-9686-4fbb5b9af3f5"
+    />
+  </a>
+  &nbsp;
+  <a href="https://discord.gg/h6xYNUBFnq" target="_blank">
+    <img
+      width="279"
+      height="89"
+      alt="Join the Discord"
+      src="https://github.com/user-attachments/assets/285a9de1-e72a-491a-9dd4-3d31887e73b2"
+    />
+  </a>
+</div>
 
-- **Playable browser game** — cube/ship/ball/wave modes, gravity, jump, ground,
-  obstacles (blocks + spikes), collision, death/restart, camera follow, orbs,
-  pads, portals, speed changes, coins, finish, synthesized music + SFX.
-- **Level editor** — place/select/move/delete objects, grid snap, save/load, test.
-- **Trigger system** — move / rotate / pulse / alpha / toggle.
-- **C++20 runtime** — mirrors the simulation; native unit tests pass; a WASM
-  build script is provided (Emscripten is not installed in this environment).
+---
 
-## Quick start
+## About
 
-```bash
-python serve.py
-# then open http://localhost:8000/
-```
+Geometry Web is a Geometry Dash remake being developed with **Cocos2d-JS / Cocos2d-html5**.
 
-The game must be served over HTTP (cocos2d-html5 loads its engine modules via XHR).
+The project aims to recreate the Geometry Dash experience using the Cocos2d engine, with its own gameplay systems, physics, rendering, menus, level editor, and additional features.
 
-## Controls
+The remake is intended to provide a more complete and extensible foundation for future development while maintaining the familiar gameplay that makes Geometry Dash recognizable.
 
-| Input | Action |
-| --- | --- |
-| Space / Up / W / click / tap | Jump (hold for ship thrust / wave up) |
-| 1..7 | Select level (menu) |
-| E | Open level editor |
-| M | Mute |
-| R | Restart level |
-| Esc | Back to menu |
+## Technologies
 
-Editor: `1..7` pick object, click to place/select, arrow keys move (or pan when
-nothing selected), `Del` remove, `P` test, `S` save, `L` load, `Esc` menu.
+- **Cocos2d-JS** - Main game framework.
+- **Cocos2d-html5** - HTML5 engine and runtime.
+- **JavaScript** - Gameplay logic, physics, systems, and mechanics.
+- **HTML5** - Browser deployment and platform compatibility.
 
-## Project layout
+## Features currently implemented:
 
-```
-GeometryWeb/
-├── index.html, cocos2d.js, main.js      bootstrap + loader config
-├── frameworks/cocos2d-html5/            the cocos2d-html5 engine (MIT)
-├── src/
-│   ├── config.js, math.js, input.js, audio.js, level.js
-│   ├── sim/Simulation.js                deterministic movement model
-│   ├── rendering/Renderer.js            cc.Node/DrawNode/LayerColor helpers
-│   ├── objects/  players/ scenes/ systems/ triggers/ editor/ menus/
-│   ├── bridge.js                        WASM <-> JS bridge (with JS fallback)
-│   └── app.js                           cc.Application bootstrap
-├── runtime/                             C++20 runtime + Emscripten/CMake
-├── levels/                              sample level (JSON format)
-├── tests/                               JS + native unit tests
-└── docs/                                build + architecture notes
-```
+- **Cocos2d Engine** - The project is being rebuilt around Cocos2d-JS / Cocos2d-html5.
+- **Game Architecture** - A Cocos2d-based foundation for gameplay, rendering, and game systems.
+- **Gameplay Systems** - Development of Geometry Dash-inspired mechanics and interactions.
+- **Modular Development** - A foundation intended to support additional mechanics and features.
 
-## Tests
+## Things currently in development:
 
-```bash
-node tests/run_tests.js                # JS simulation tests
-powershell -File runtime/build_native.ps1   # C++ native build + tests
-```
+- **Gameplay Engine** - Rebuilding the core gameplay systems using Cocos2d.
+- **Player Physics** - Implementing movement, gravity, collisions, and accurate gameplay behavior.
+- **Gamemodes** - Recreating the different Geometry Dash gamemodes and their individual mechanics.
+- **Level System** - Developing level loading, object handling, and gameplay progression.
+- **Rendering** - Rebuilding game visuals, animations, effects, and object rendering.
+- **Menus and Interface** - Creating the game's menus and user interface using Cocos2d.
+- **Level Editor** - Developing level creation and editing functionality.
+- **Trigger System** - Building support for advanced object interactions and gameplay events.
 
-See `docs/BUILD.md` for full build instructions, and `docs/architecture.md`
-for how the systems map to the genre and to the earlier analysis.
+## What we hope to see added in the future:
+
+- **Complete Gamemode Support** - Recreate all Geometry Dash gamemodes, including Swing.
+- **Complete Object Support** - Implement the different gameplay objects, animations, colors, and interactions.
+- **Advanced Physics** - Improve collision accuracy, slope handling, gravity, and movement behavior.
+- **Level Editor** - A complete editor with object placement, groups, triggers, and additional tools.
+- **Advanced Trigger System** - Support for complex interactions, animations, and gameplay events.
+- **Custom Objects** - Allow additional gameplay objects and configurable behaviors.
+- **Custom Portals, Orbs, and Pads** - Expand the available gameplay mechanics.
+- **Improved Rendering** - Add more advanced effects, animations, and visual improvements.
+- **Cross-Platform Support** - Build a foundation that can support different platforms through Cocos2d.
+
+### Come follow the development of Geometry Web!
+
+**[GitHub Repository](https://github.com/web-dashers/web-dashers.github.io)**
+
+---
+
+> - <sub>Special thanks to everyone supporting and contributing to Geometry Web. Please consider starring the repository to support development!</sub>
+> - <sub>Please report bugs through our Discord server or the Issues page on GitHub. Check existing reports before submitting duplicates.</sub>
