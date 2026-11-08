@@ -98,10 +98,10 @@ GD.C = {
     saveKeyLevels: 'gdweb_custom_levels',
     saveKeyProgress: 'gdweb_progress',
 
-    // Original Geometry Dash asset integration (local, personal use).
-    // Loads ../Resources/* at runtime from your own install. Serve the PARENT
-    // folder (serve.py does this) so Resources/ is reachable over HTTP.
-    assetsRoot: '../Resources/',
+    // Asset detection: when empty (default), the loader auto-probes
+    // './Resources/' then '../Resources/' and uses whatever it finds.
+    // Set an explicit path to override.
+    assetsRoot: '',
 };
 
 // Player mode enum (shared with the C++ runtime / WASM ABI).

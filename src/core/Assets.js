@@ -1,20 +1,15 @@
 /**
- * Geometry Web — Geometry Dash asset integration (personal, LOCAL use).
+ * Web Dashers — automatic asset detection + fallback.
  *
- * Loads the ORIGINAL Geometry Dash resources from your local installation at
- * runtime via cocos2d-html5's native caches (cc.SpriteFrameCache / cc.AudioEngine).
- * No asset file is copied into this project: the game reads them from a folder
- * you serve yourself.
- *
- * IMPORTANT: these are RobTop Games' copyrighted assets. They may only be used
- * for your own personal, non-distributed reconstruction. Do NOT publish or
- * redistribute them.
+ * Probes for a local Resources folder and uses real assets when present;
+ * otherwise falls back to original artwork per-asset. Never blocks startup,
+ * and never assumes assets are present or absent — the files decide.
  */
 window.GD = window.GD || {};
 
 GD.Assets = (function () {
     var root = '';
-    var loaded = false;
+    var initialized = false;
 
     // Real atlases in Resources/ (each has a matching .png). Verified present.
     var ATLASES = [
@@ -53,34 +48,57 @@ GD.Assets = (function () {
         portal: 'portal_01_front_001.png'   // portal (front layer)
     };
 
-    function setRoot(p) { root = p || ''; }
+    // HTTP probe: does this URL resolve successfully?
+    function httpOk(url, cb) {
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.timeout = 4000;
+            xhr.onload = function () { cb(xhr.status >= 200 && xhr.status < 300); };
+            xhr.onerror = function () { cb(false); };
+            xhr.ontimeout = function () { cb(false); };
+            xhr.send();
+        } catch (e) { cb(false); }
+    }
 
-    // Load all configured atlases (and start music). Skips any missing file.
+    // Find a reachable Resources root (explicit config override wins).
+    function detectRoot(cb) {
+        var explicit = (window.GD && GD.C && GD.C.assetsRoot) || '';
+        var roots = explicit ? [explicit] : ['./Resources/', '../Resources/'];
+        var i = 0;
+        (function next() {
+            if (i >= roots.length) { cb(''); return; }
+            var r = roots[i++];
+            httpOk(r + 'GJ_GameSheet.plist', function (ok) {
+                if (ok) cb(r); else next();
+            });
+        })();
+    }
+
     function loadAll(onDone) {
-        if (loaded || !root) {
-            if (!root) console.log('[GD.Assets] assetsRoot is empty -> procedural art only.');
-            if (onDone) onDone();
-            return;
-        }
-        loaded = true;
-        console.log('[GD.Assets] root =', root);
-        var cache = cc.SpriteFrameCache.getInstance();
-        ATLASES.forEach(function (name) {
-            var plistPath = root + name + '.plist';
-            var pngPath = root + name + '.png';
-            try {
-                cache.addSpriteFrames(plistPath, pngPath);
-                console.log('[GD.Assets] atlas queued:', name);
-            } catch (e) {
-                console.warn('[GD.Assets] FAILED to queue atlas:', name, e);
+        if (initialized) { if (onDone) onDone(); return; }
+        initialized = true;
+        var finish = function () { if (onDone) onDone(); };
+        detectRoot(function (r) {
+            root = r;
+            if (!root) {
+                console.log('[Assets] no Resources folder found -> original artwork.');
+                setTimeout(finish, 0);
+                return;
             }
+            console.log('[Assets] resource root:', root);
+            ATLASES.forEach(function (name) {
+                try {
+                    cc.SpriteFrameCache.getInstance().addSpriteFrames(root + name + '.plist', root + name + '.png');
+                } catch (e) {
+                    console.warn('[Assets] failed to load atlas:', name, e);
+                }
+            });
+            setTimeout(function () {
+                console.log('[Assets] cube frame present:', !!frame(FRAMES.cube));
+                finish();
+            }, 250);
         });
-        // Deferred check: did the frames actually register (async texture load)?
-        setTimeout(function () {
-            var ok = !!cc.SpriteFrameCache.getInstance().getSpriteFrame(FRAMES.cube);
-            console.log('[GD.Assets] cube frame present after load:', ok);
-            if (onDone) onDone();
-        }, 1200);
     }
 
     // Look up a frame by name (with or without the .png suffix).
@@ -123,7 +141,7 @@ GD.Assets = (function () {
     }
 
     return {
-        setRoot: setRoot, loadAll: loadAll,
+        loadAll: loadAll,
         frame: frame, sprite: sprite, sizedSprite: sizedSprite, icon: icon, fontPath: fontPath,
         playMusic: playMusic, playEffect: playEffect,
         ATLASES: ATLASES, ICONS: ICONS, FRAMES: FRAMES

@@ -34,13 +34,12 @@ GD.App = cc.Application.extend({
         GD.Input.init();
         GD.bridge.init();
 
-        // Load the original Geometry Dash assets from your local installation
-        // (personal, local use; see src/core/Assets.js and docs/ASSETS.md).
-        GD.Assets.setRoot(GD.C.assetsRoot);
-        GD.Assets.loadAll();
-        if (GD.C.assetsRoot) { GD.Assets.playMusic('StereoMadness.mp3', true); }
-
-        director.runWithScene(new this.startScene());
+        // Auto-detect + load assets, then start the scene so real frames are
+        // used when present (falls back to original artwork otherwise).
+        var startScene = this.startScene;
+        GD.Assets.loadAll(function () {
+            director.runWithScene(new startScene());
+        });
         return true;
     }
 });
