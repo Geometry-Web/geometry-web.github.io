@@ -1,0 +1,59 @@
+Geometry Web — build progress
+=============================
+
+STAGE 1  Inspect workspace + Cocos2d framework ........ DONE
+           - reviewed GD-Decompiled/ (used as design reference only)
+           - downloaded cocos2d-html5 v2.2.2 (MIT) -> frameworks/cocos2d-html5/
+           - confirmed toolchain: Node 24, CMake, MSVC 19.44; no Emscripten
+
+STAGE 2  Build the Cocos2d-HTML5 application ......... DONE
+           - bootstrap (index.html, cocos2d.js, main.js, src/app.js)
+           - playable cube + ship + ball + wave, gravity/jump/ground,
+             obstacles, collision, death/restart, camera, audio, HUD,
+             level loading, keyboard + touch/pointer input
+
+STAGE 3  Implement the C++ gameplay runtime .......... DONE
+           - runtime/include/gd_runtime.hpp, runtime/src/gd_runtime.cpp
+           - C ABI binding runtime/bindings/gd_bindings.cpp (gd_step)
+
+STAGE 4  Compile the runtime to WASM ................. PARTIAL
+           - native build + unit tests PASS (MSVC, runtime/build_native.ps1)
+           - WASM build script provided (runtime/build_wasm.sh); Emscripten
+             NOT installed here, so the .wasm cannot be produced in this env
+
+STAGE 5  Connect WASM to Cocos2d .................... DONE (bridge + fallback)
+           - src/bridge.js loads the WASM glue when present; falls back to the
+             pure-JS simulation otherwise, so the game is always playable
+
+STAGE 6  Player modes / portals / orbs / pads / triggers DONE (all 8 modes)
+           - cube, ship, ball, ufo, wave, robot, spider, swing (JS + C++ mirror)
+           - orbs/pads (jump/gravity), mode portals (all 8), gravity portal,
+             size portal, speed portal, coins, finish, checkpoints
+           - trigger system: move/rotate/pulse/alpha/toggle
+STAGE 6b  Cocos2d class usage ................. DONE
+           - cc.Sprite + cc.Texture2D + cc.SpriteFrame (procedural artwork)
+           - cc.ParticleSystem (death/coin bursts)
+           - cc.Follow (camera)
+           - fixed: src/systems/Collision.js was missing (created it)
+
+STAGE 7  Level editor ............................... DONE (functional basics)
+           - place/select/move/delete, grid snap, save/load, test
+
+STAGE 8  Test, optimize, document ................... DONE
+           - node tests/run_tests.js .............. PASS
+           - native_test (MSVC) ................... PASS
+           - docs/ (README, BUILD, architecture), levels/sample.json
+
+Verification log
+----------------
+- 21 project JS files pass `node --check`
+- node tests/run_tests.js ......... "All JS simulation tests passed."
+- runtime native_test.exe ......... "All native runtime tests passed."
+- HTTP serve check ................ index.html, cocos2d.js, main.js,
+  jsloader.js, GameScene.js, app.js all return 200
+
+Remaining / out of scope for this environment
+---------------------------------------------
+- Producing the .wasm requires Emscripten (not installed). Scripts are ready.
+- UFO/robot/spider/swing physics, and the full GD trigger/effect-ID system,
+  are intentionally simplified/independent and marked as such.
