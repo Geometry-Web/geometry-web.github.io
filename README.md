@@ -4,7 +4,7 @@
 <div align="center">
   <img
     alt="Geometry Web"
-    src="./GeometryWebicion.png"
+    src="https://raw.githubusercontent.com/Geometry-Web/geometry-web.github.io/refs/heads/main/GeometryWebicon.png"
   />
 
   <p>
