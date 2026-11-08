@@ -4,7 +4,7 @@
 <div align="center">
   <img
     alt="Geometry Web"
-    src=".GeometryWebicion.png"
+    src="./GeometryWebicion.png"
   />
 
   <p>
