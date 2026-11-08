@@ -11,7 +11,7 @@
     <strong>A Cocos2d-based Geometry Dash remake with additional features and improvements!</strong>
   </p>
 
-  <a href="https://web-dashers.github.io/" target="_blank">
+  <a href="https://geometry-web.github.io/" target="_blank">
     <img
       width="279"
       height="89"
