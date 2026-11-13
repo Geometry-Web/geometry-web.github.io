@@ -5,24 +5,41 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# Required by the official GitHub Pages deployment actions.
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# Never run two Pages deployments at once, and never cancel one half-way.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # The site is plain static files (Cocos2d-HTML5, no bundler), so this
+      # step only guards against a broken tree being published.
+      - name: Validate static site
+        run: |
+          set -euo pipefail
+          for f in index.html cocos2d.js main.js \
+                   src/resource.js src/MyApp.js \
+                   cocos2d/jsloader.js cocos2d/core/CCDirector.js \
+                   res/gd/GJ_GameSheet.png res/gd/GJ_GameSheet.plist \
+                   res/gd/GJ_GameSheetIcons.png res/gd/GJ_GameSheetIcons.plist \
+                   res/gd/bigFont.fnt res/gd/goldFont.fnt; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::required site file is missing"
+              exit 1
+            fi
+          done
+          echo "Static site tree is complete."
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -30,8 +47,16 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          # index.html lives at the repository root, so the root is the site.
+          path: "."
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

@@ -1,67 +1,47 @@
-/**
- * Geometry Web — cocos2d-html5 loader configuration.
- * This file configures the cocos2d-html5 (v2.2.2) engine loader, which is the
- * MIT-licensed open-source game framework. It loads the engine modules from
- * frameworks/cocos2d-html5/ and then our application files (src/*), followed
- * by main.js.
- */
+/* Cocos2d-HTML5 v2.2.3 boot configuration.
+   This mirrors the Geometry Dash engine (Cocos2d-x 2.2.3) on the web. */
 (function () {
     var d = document;
     var c = {
-        COCOS2D_DEBUG: 0,       // 0 = off, 1 = basic, 2 = full
-        box2d: false,           // custom physics is used instead
+        COCOS2D_DEBUG: 2,   // 0 = off, 1 = basic, 2 = full
+        box2d: false,
         chipmunk: false,
-        // Debug stats appear only when ?debug=1 is in the URL.
-        showFPS: (typeof location !== 'undefined' && location.search.indexOf('debug=1') !== -1),
-        frameRate: 60,
+        showFPS: false,
         loadExtension: false,
-        renderMode: 0,          // 0 = auto (WebGL where supported; matches cc.DrawNode)
+        frameRate: 60,
+        renderMode: 1,      // 0 = auto, 1 = Canvas only, 2 = WebGL only
         tag: 'gameCanvas',
-        engineDir: 'frameworks/cocos2d-html5/',
+        engineDir: 'cocos2d/',
         appFiles: [
-            'src/config.js',
-            'src/math.js',
-            'src/input.js',
-            'src/audio.js',
-            'src/level.js',
-            'src/sim/Simulation.js',
-            'src/rendering/Renderer.js',
-            'src/rendering/Textures.js',
-            'src/core/Assets.js',
-            'src/objects/GameObject.js',
-            'src/objects/Player.js',
-            'src/triggers/Triggers.js',
-            'src/systems/Collision.js',
-            'src/systems/Camera.js',
-            'src/systems/GameState.js',
-            'src/systems/LevelLoader.js',
-            'src/systems/Particles.js',
-            'src/editor/Editor.js',
-            'src/menus/MenuScene.js',
-            'src/scenes/GameScene.js',
-            'src/scenes/EditorScene.js',
-            'src/bridge.js',
-            'src/app.js',
-            'src/core/Architecture.js'
+            'src/resource.js?v=23',
+            'src/MyApp.js?v=24'
         ]
     };
 
     if (!d.createElement('canvas').getContext) {
-        d.body.innerHTML = '<h2>Your browser does not support HTML5 canvas.</h2>';
+        var s = d.createElement('div');
+        s.innerHTML = '<h2>Your browser does not support HTML5 canvas!</h2>';
+        var p = d.getElementById(c.tag).parentNode;
+        p.insertBefore(s, d.getElementById(c.tag));
+        d.body.style.background = '#ffffff';
         return;
     }
 
-    window.addEventListener('DOMContentLoaded', function () {
-        this.removeEventListener('DOMContentLoaded', arguments.callee, false);
+    var fn;
+    window.addEventListener('DOMContentLoaded', fn = function () {
+        this.removeEventListener('DOMContentLoaded', fn, false);
         var s = d.createElement('script');
-        if (c.engineDir) {
-            s.src = c.engineDir + 'jsloader.js';
-        } else {
-            alert('No engine directory specified in cocos2d.js');
-            return;
+        if (c.SingleEngineFile && !c.engineDir) {
+            s.src = c.SingleEngineFile;
         }
+        else if (c.engineDir && !c.SingleEngineFile) {
+            s.src = c.engineDir + 'jsloader.js?v=15';
+        }
+        else {
+            alert('You must specify either the single engine file OR the engine directory in "cocos2d.js"');
+        }
+        d.body.appendChild(s);
         document.ccConfig = c;
         s.id = 'cocos2d-html5';
-        d.body.appendChild(s);
     });
 })();

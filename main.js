@@ -1,26 +1,46 @@
-/**
- * Geometry Web — entry point.
- * Loaded last by the cocos2d-html5 loader. Instantiates the Application and
- * starts the game at the main menu.
- */
-(function () {
-    'use strict';
+/* Application bootstrap. Mirrors the Cocos2d-x 2.x CCDirector / CCEGLView /
+   CCApplication startup sequence recovered from Geometry Dash. */
 
-    // Guard against double boot (e.g. hot-reload).
-    if (window.__GD_BOOTED__) { return; }
-    window.__GD_BOOTED__ = true;
+var cocos2dApp = cc.Application.extend({
+    config: document['ccConfig'],
+    ctor: function (scene) {
+        this._super();
+        this.startScene = scene;
+        cc.COCOS2D_DEBUG = this.config['COCOS2D_DEBUG'];
+        cc.initDebugSetting();
+        cc.setup(this.config['tag']);
+        cc.AppController.shareAppController().didFinishLaunchingWithOptions();
+    },
+    applicationDidFinishLaunching: function () {
+        var director = cc.Director.getInstance();
 
-    var scene = (window.GD && GD.scenes && GD.scenes.MenuScene)
-        ? GD.scenes.MenuScene
-        : null;
+        cc.EGLView.getInstance()._adjustSizeToBrowser();
+        var screenSize = cc.EGLView.getInstance().getFrameSize();
 
-    if (!window.GD || !GD.App) {
-        // Should not happen if appFiles loaded correctly.
-        document.body.innerHTML = '<h2 style="color:#eee;font-family:sans-serif;padding:24px">' +
-            'Failed to load application modules. Serve this folder over HTTP ' +
-            '(e.g. <code>python -m http.server</code>) and reload.</h2>';
-        return;
+        // Geometry Dash on PC runs landscape; use a 16:9 design resolution.
+        var designSize = cc.size(960, 540);
+
+        var searchPaths = [];
+        searchPaths.push("res");
+        cc.FileUtils.getInstance().setSearchPaths(searchPaths);
+
+        cc.FileUtils.getInstance().setSearchResolutionsOrder([]);
+        director.setContentScaleFactor(1.0);
+        // SHOW_ALL keeps the full 16:9 frame and letterboxes (instead of
+        // cropping), so the game stays landscape no matter the window size.
+        cc.EGLView.getInstance().setDesignResolutionSize(
+            designSize.width, designSize.height, cc.RESOLUTION_POLICY.SHOW_ALL);
+        cc.EGLView.getInstance().resizeWithBrowserSize(true);
+
+        director.setDisplayStats(this.config['showFPS']);
+        director.setAnimationInterval(1.0 / this.config['frameRate']);
+
+        cc.LoaderScene.preload(g_resources, function () {
+            director.replaceScene(new this.startScene());
+        }, this);
+
+        return true;
     }
+});
 
-    new GD.App(scene);
-})();
+var myApp = new cocos2dApp(MyScene);

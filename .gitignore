@@ -1,4 +1,19 @@
-runtime/build/
+# Dependencies / tooling
+node_modules/
+npm-debug.log*
+
+# Local dev & verification artifacts
+.tmp-*/
+*.log
+screenshots/
+
+# Legacy python helpers
 __pycache__/
 *.pyc
+runtime/build/
 *.tar.gz
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini

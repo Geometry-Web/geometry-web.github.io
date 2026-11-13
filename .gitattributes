@@ -1,0 +1,18 @@
+# Keep every deployed text file byte-identical to what the working copy holds:
+# GitHub Pages serves the bytes stored in the repository.
+* text=auto eol=lf
+
+# Engine / game code
+*.js   text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+
+# Sprite sheets and their metadata must never be normalised
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.ico   binary
+*.gif   binary
