@@ -9,10 +9,10 @@ what is deployed today.
 | [`ASSETS.md`](ASSETS.md) | legacy | Where the original asset files go and what the loader expects. |
 
 The remaining files describe the **framework-free build** that used to live in
-this repository (`frameworks/cocos2d-html5/…`, `src/app.js`, `src/core/*`,
-`src/menus/*`) and was replaced by the cocos2d-html5 v2.2.3 app now in `src/`.
-They are kept for the design records and are recoverable in git history at
-commit `e23725b`:
+this repository (`frameworks/cocos2d-html5/…`, `src/app.js`, the old
+`src/core/assets.js` and `src/menus/*`) and was replaced by the cocos2d-html5
+v2.2.3 app now in `src/`. They are kept for the design records and are
+recoverable in git history at commit `e23725b`:
 
 | Document | Status | Contents |
 | --- | --- | --- |
@@ -25,11 +25,14 @@ commit `e23725b`:
 
 | Path | Role |
 | --- | --- |
-| `index.html` | Hosts `#gameCanvas`, loads `cocos2d.js?v=17`, shows a hint if the engine never boots. |
+| `index.html` | Hosts `#gameCanvas`, loads `cocos2d.js?v=18`, shows a hint if the engine never boots. |
 | `cocos2d.js` | Boot config: engine file list, `res` path, cache-busting version, then `main.js`. |
-| `main.js` | `cc.game.run` with `renderMode: 1` (Canvas) — no WebGL dependency. |
+| `main.js` | `cc.game.run` with `renderMode: 1` (Canvas) — no WebGL dependency. Also installs the one-time audio unlock and the `?kit` switch. |
+| `src/core/` | Shared layer: `GD.js` (namespace, sheets, art/text helpers), `Save.js`, `Audio.js` and `UI.js` — the widget kit every screen draws its buttons, popups and bars from. |
 | `src/resource.js` | Declares every atlas/plist/font; missing files degrade instead of aborting. |
-| `src/MyApp.js` | The app: `MenuScene`, `GarageScene`, `CreateScene`, `StatsScene`, name editor, shared UI helpers. |
+| `src/MyApp.js` | The app: `MenuScene`, `GarageScene`, `CreateScene`, `StatsScene`, name editor, screens built on the kit. |
+| `src/dev/KitShowcase.js` | `index.html?kit` — renders every kit widget on one page for layout review. |
+| `tools/` | Local helpers: asset server, frame dumper, sheet gallery, PNG size reader. |
 | `cocos2d/` | cocos2d-html5 v2.2.3 engine source. |
 | `extensions/` | Optional engine extensions, only loaded when `loadExtension` asks for them. |
 | `res/gd/` | Sprite sheets, fonts and UI art used by the scenes. |
