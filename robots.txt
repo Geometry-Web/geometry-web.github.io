@@ -1,0 +1,8 @@
+# Geometry Web is a playable web build; let crawlers index the landing page.
+User-agent: *
+Allow: /
+
+# Keep crawlers out of the engine dump - nothing there is meant for humans.
+Disallow: /cocos2d/
+Disallow: /cocos2d.js
+Disallow: /main.js

@@ -1,11 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <title>Geometry Web — Cocos2d-HTML5</title>
-    <link rel="icon" type="image/GIF" href="res/favicon.ico"/>
+    <meta name="description" content="A Geometry Dash recreation running on cocos2d-html5 v2.2.3 — main menu, Create hub, Icon Kit and Stats, drawn from the game's own sprite sheets.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+    <link rel="canonical" href="https://geometry-web.github.io/"/>
+    <link rel="icon" type="image/x-icon" href="res/favicon.ico"/>
+    <link rel="apple-touch-icon" href="GeometryWebicon.png"/>
+    <meta name="theme-color" content="#000000"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:site_name" content="Geometry Web"/>
+    <meta property="og:title" content="Geometry Web — Cocos2d-HTML5"/>
+    <meta property="og:description" content="Geometry Dash recreated on cocos2d-html5 v2.2.3."/>
+    <meta property="og:url" content="https://geometry-web.github.io/"/>
+    <meta property="og:image" content="https://geometry-web.github.io/GeometryWebicon.png"/>
+    <meta name="twitter:card" content="summary_large_image"/>
+    <!-- iOS/Safari full-screen hints (mobile-web-app-capable is the non-deprecated name) -->
+    <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
     <meta name="full-screen" content="yes"/>
     <meta name="screen-orientation" content="landscape"/>
     <style>
@@ -16,6 +30,8 @@
             height: 100%;
             overflow: hidden;
             background: #000;
+            color: #fff;
+            font-family: "Trebuchet MS", Arial, sans-serif;
         }
         #gameCanvas {
             display: block;
@@ -28,11 +44,55 @@
             -khtml-user-select: none;
             -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
         }
+        #boot-error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 32em;
+            padding: 1.25em 1.5em;
+            background: rgba(20, 20, 20, 0.92);
+            border: 2px solid #6d6d6d;
+            border-radius: 6px;
+            line-height: 1.5;
+            text-align: center;
+        }
+        #boot-error h1 {
+            margin: 0 0 0.5em;
+            font-size: 1.2em;
+            color: #ffd23f;
+        }
+        #boot-error p {
+            margin: 0.4em 0;
+            font-size: 0.9em;
+        }
+        #boot-error code {
+            color: #7cf05f;
+        }
     </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="960" height="540"></canvas>
-<script src="cocos2d.js?v=17"></script>
+<canvas id="gameCanvas" width="960" height="540">
+    Your browser does not support the HTML5 canvas element.
+</canvas>
+<noscript>
+    <p style="text-align:center;margin-top:2em">Geometry Web needs JavaScript to run.</p>
+</noscript>
+<div id="boot-error" hidden>
+    <h1>The game did not start</h1>
+    <p>Geometry Web loads its engine files over HTTP, so it has to be opened from a
+       web server — not by double-clicking <code>index.html</code>.</p>
+    <p>Locally: <code>python -m http.server 8080</code>, then
+       <code>http://localhost:8080/</code>.</p>
+    <p>Online: <a href="https://geometry-web.github.io/" style="color:#7cf05f">geometry-web.github.io</a></p>
+</div>
+<script src="cocos2d.js?v=18"></script>
+<script>
+    // The engine boots asynchronously (jsloader -> appFiles). If it never does,
+    // show a hint instead of leaving the visitor on a black page.
+    setTimeout(function () {
+        if (!window.cc) document.getElementById('boot-error').hidden = false;
+    }, 20000);
+</script>
 </body>
 </html>
-
