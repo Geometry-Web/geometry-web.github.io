@@ -333,3 +333,155 @@ GD.loadSheets = function () {
     GD._sheetsLoaded = true;
 };
 
+/* ------------------------------------------------------------- icon kit set */
+/* GD 2.2 keeps player icons outside the game sheets: every icon is its own
+ * little atlas, Resources/icons/<family>_<n>.png + .plist, holding the icon
+ * body, its detail layer and its glow side by side. GJ_GameSheetIcons — the
+ * sheet this build used to rely on — is a truncated rip (249 cubes, 79 ships),
+ * so the Icon Kit ran out of icons after a few pages.
+ *
+ * res/gd/icons/ therefore carries the complete SD set (1205 icons: 483 cubes,
+ * 169 ships, 118 balls, 149 UFOs, 96 waves, 68 robots, 69 spiders, 43 swings,
+ * 8 jetpacks) plus manifest.json — the body frame rect of every icon — built by
+ * tools/icon-manifest.js. One PNG per icon and one rect lookup is all the
+ * runtime needs: no plist is parsed on the main thread, and only the icons of
+ * the page being looked at are fetched. */
+GD.ICONS = {
+    dir: "res/gd/icons/",
+    manifest: "res/gd/icons/manifest.json",
+    // Icon-Kit tab pool -> atlas family. Only the jetpack tab differs: the
+    // layout calls that pool "pack", the files are called "jetpack".
+    family: {
+        player: "player", ship: "ship", player_ball: "player_ball", bird: "bird",
+        dart: "dart", robot: "robot", spider: "spider", swing: "swing",
+        pack: "jetpack"
+    }
+};
+
+GD._iconManifest = null;    // parsed manifest, or false when it is unavailable
+GD._iconPools = {};         // pool -> [icon number, ...] in grid order
+GD._iconFrames = {};        // "<family>_<nn>" -> cc.SpriteFrame
+GD._iconTextures = {};      // "<family>_<nn>" -> cc.Texture2D
+
+/* ~45 KB of rects that every Icon Kit layout needs before it can draw a slot,
+ * so it is read synchronously once — the same trade-off looseSize() makes. */
+GD.iconManifest = function () {
+    if (GD._iconManifest !== null) return GD._iconManifest || null;
+    GD._iconManifest = false;
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", GD.ICONS.manifest, false);
+        xhr.send(null);
+        if (xhr.responseText) GD._iconManifest = JSON.parse(xhr.responseText);
+    } catch (e) {
+        cc.log("GD.iconManifest: " + GD.ICONS.manifest + " -> " + e);
+    }
+    return GD._iconManifest || null;
+};
+
+/* Icon numbers of a pool, in the order the Icon Kit shows them. Derived from the
+ * manifest's frame keys so the manifest stays the single source of truth: the
+ * sets have holes in them (this install has no cube 140 or 420) and icon 0 is
+ * GD's "no icon" placeholder, which never appears in the kit. */
+GD.iconNumbers = function (pool) {
+    var cached = GD._iconPools[pool];
+    if (cached) return cached;
+
+    var numbers = [];
+    var manifest = GD.iconManifest();
+    var family = GD.ICONS.family[pool];
+    if (manifest && family && manifest.frames) {
+        var re = new RegExp("^" + family + "_(\\d+)$");
+        for (var name in manifest.frames) {
+            var hit = re.exec(name);
+            if (hit && Number(hit[1]) > 0) numbers.push(Number(hit[1]));
+        }
+        numbers.sort(function (a, b) { return a - b; });
+    }
+    GD._iconPools[pool] = numbers;
+    return numbers;
+};
+
+// Icons the loose set has for a pool (0 when it is not shipped).
+GD.iconCount = function (pool) { return GD.iconNumbers(pool).length; };
+
+// Icon number at a slot index (0-based), or 0 when the slot is past the end.
+GD.iconNumberAt = function (pool, index) {
+    var numbers = GD.iconNumbers(pool);
+    return (index >= 0 && index < numbers.length) ? numbers[index] : 0;
+};
+
+// File base name of an icon, e.g. "player_07" or "player_483".
+GD.iconBaseName = function (pool, number) {
+    var family = GD.ICONS.family[pool];
+    if (!family || !number) return null;
+    return family + "_" + (number < 10 ? "0" + number : "" + number);
+};
+
+/* Texture of an icon's atlas. The first call starts the download; cc.Texture2D
+ * decodes off the main thread and marks itself loaded when the image arrives,
+ * exactly like the sheet textures. */
+GD.iconTexture = function (pool, number) {
+    var base = GD.iconBaseName(pool, number);
+    if (!base) return null;
+    if (GD._iconTextures[base] === undefined) {
+        GD._iconTextures[base] =
+            cc.TextureCache.getInstance().addImage(GD.ICONS.dir + base + ".png");
+    }
+    return GD._iconTextures[base];
+};
+
+/* Sprite frame of an icon, or null when the loose set is not shipped. The rect
+ * comes from the manifest (rotated frames included); a sprite built from a frame
+ * whose texture is still decoding finishes itself through the frame's loaded
+ * listener, so callers can draw right away. */
+GD.iconSpriteFrame = function (pool, number) {
+    var base = GD.iconBaseName(pool, number);
+    if (!base) return null;
+    if (GD._iconFrames[base] !== undefined) return GD._iconFrames[base];
+
+    var manifest = GD.iconManifest();
+    var rect = manifest && manifest.frames ? manifest.frames[base] : null;
+    var texture = rect ? GD.iconTexture(pool, number) : null;
+    if (!texture) { GD._iconFrames[base] = null; return null; }
+
+    GD._iconFrames[base] = cc.SpriteFrame.createWithTexture(
+        texture, cc.rect(rect[0], rect[1], rect[2], rect[3]),
+        rect[4] === 1, cc.p(0, 0), cc.size(rect[2], rect[3]));
+    return GD._iconFrames[base];
+};
+
+// True once the icon's atlas is decoded, i.e. the frame can be drawn or tinted.
+GD.iconFrameLoaded = function (pool, number) {
+    var frame = GD.iconSpriteFrame(pool, number);
+    return !!(frame && frame.textureLoaded());
+};
+
+// Sprite of an icon, or null when it is not available.
+GD.iconSprite = function (pool, number) {
+    var frame = GD.iconSpriteFrame(pool, number);
+    return frame ? cc.Sprite.createWithSpriteFrame(frame) : null;
+};
+
+/* Starts the download of the given icons and calls back once they are all
+ * decoded. Icons already in the texture cache cost nothing, and the callback
+ * never fires on a 404 — the caller simply keeps showing what it has. */
+GD.preloadIcons = function (pool, numbers, callback, target) {
+    var pending = [];
+    for (var i = 0; i < numbers.length; i++) {
+        var texture = GD.iconTexture(pool, numbers[i]);
+        if (texture && !texture.isLoaded() && pending.indexOf(texture) === -1) {
+            pending.push(texture);
+        }
+    }
+    if (!pending.length) return false;
+
+    var remaining = pending.length;
+    for (var j = 0; j < pending.length; j++) {
+        pending[j].addLoadedEventListener(function () {
+            if (--remaining === 0 && callback) cc.doCallback(callback, target);
+        }, null);
+    }
+    return true;
+};
+

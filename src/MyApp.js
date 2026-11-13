@@ -133,6 +133,14 @@ function iconFrameName(pool, number) {
     return pattern.replace("%n", number < 10 ? "0" + number : "" + number);
 }
 
+/* Icons a tab can show. The complete loose set under res/gd/icons wins (see
+ * GD.iconCount); `count` below describes only what the truncated game sheet
+ * packs, and is the fallback for builds without the loose set. */
+function tabIconCount(tab) {
+    if (!tab || !tab.pool) return 0;
+    return GD.iconCount(tab.pool) || tab.count || 0;
+}
+
 var GARAGE_LAYOUT = {
     font: "res/gd/bigFont.fnt",
     colors: {
@@ -181,9 +189,10 @@ var GARAGE_LAYOUT = {
         separator: { x: 480, y: 356, width: 620, height: 2 }
     },
     // The eleven icon-type tabs under the preview. `pool` is the family (see
-    // ICON_FRAME_PATTERNS) and `count` the number of frames it has in the
-    // shipped sheet; every icon of a family is owned, so the grid simply pages
-    // through them. `count: 0` marks a tab the rip has no frames for.
+    // ICON_FRAME_PATTERNS) and `count` the number of frames the shipped sheet
+    // has for it; the complete loose set in res/gd/icons (483 cubes, 169 ships,
+    // ...) is what the kit actually pages through when it is present. `pool:
+    // null` marks a tab the rip has no frames for.
     tabs: {
         y: 330, startX: 188, pitch: 57.8, scale: 1.15,
         items: [
@@ -897,7 +906,8 @@ var CreatorScene = cc.Scene.extend({
 /* -------------------------------------------------------------------------
  * GarageLayer — the "Icon Kit" opened by the paint-palette button: player
  * name + stat counters, the big icon preview, the eleven icon-type tabs and
- * the paged icon grid (every icon in the shipped sheet is owned).
+ * the paged icon grid (36 slots a page, drawn from the complete loose icon set
+ * in res/gd/icons, with the shipped sheet as a fallback).
  * ---------------------------------------------------------------------- */
 var GarageLayer = cc.Layer.extend({
     init: function () {
@@ -906,6 +916,7 @@ var GarageLayer = cc.Layer.extend({
         this._page = 0;       // current icon-grid page
         this._tab = 0;        // current icon-type tab
         this._selected = -1;  // highlighted slot of the current page
+        this._loadingIcons = false; // is a page's icon atlas batch still decoding?
         this._editingName = false;  // is the profile name field open?
         this._nameDraft = "";       // what has been typed so far
         this._nameInput = null;     // the DOM field, only while editing
@@ -927,6 +938,7 @@ var GarageLayer = cc.Layer.extend({
         this._gridNode = cc.Node.create();
         this.addChild(this._gridNode, 7);
         this.buildGrid();
+        this.updatePreview();
 
         // The profile name is pressed directly, so the layer needs its own touch
         // handler. Menus keep priority, so only presses outside them reach here.
@@ -1039,7 +1051,9 @@ var GarageLayer = cc.Layer.extend({
         this._nameHint.setVisible(false);
         this.addChild(this._nameHint, 5);
 
-        // The selected icon, drawn in the player's colour 1.
+        // The selected icon, drawn in the player's colour 1. Starts as the game
+        // sheet's default cube — a texture that is guaranteed to be decoded, so
+        // the tint below is safe — and updatePreview() swaps in the real icon.
         this._previewCube = cc.Sprite.createWithSpriteFrameName(p.cube.frame);
         this._previewCube.setScale(p.cube.scale);
         this._previewCube.setColor(cc.c3b(c.iconTint[0], c.iconTint[1], c.iconTint[2]));
@@ -1246,9 +1260,9 @@ var GarageLayer = cc.Layer.extend({
             GARAGE_LAYOUT.colors.panel, this, 2);
     },
 
-    /* Rebuilds the 12x3 slots for the current tab + page. Every icon of a family
-     * is owned, so a slot either shows a clickable icon or — on the last page of
-     * a short family — stays an empty square. */
+    /* Rebuilds the 12x3 slots of the current tab + page: a square per slot, plus
+     * a clickable icon for the slots this page actually fills. On the last page
+     * of a short family the remaining squares stay empty. */
     buildGrid: function () {
         this._gridNode.removeAllChildren();
 
@@ -1293,7 +1307,36 @@ var GarageLayer = cc.Layer.extend({
             this._gridNode.addChild(menu, 2);
         }
 
-        if (!GARAGE_LAYOUT.tabs.items[this._tab].count) this.addEmptyGridLabel();
+        if (!tabIconCount(GARAGE_LAYOUT.tabs.items[this._tab])) this.addEmptyGridLabel();
+
+        this.preloadPageIcons();
+    },
+
+    /* Icon atlases are fetched on demand, one small PNG per icon, so the first
+     * visit to a page shows empty squares for a moment. Once the page's icons
+     * have decoded the grid is rebuilt once — `preloadPageIcons` only asks for
+     * icons that are still missing, so this cannot loop. */
+    preloadPageIcons: function () {
+        var g = GARAGE_LAYOUT.grid;
+        var pool = GARAGE_LAYOUT.tabs.items[this._tab].pool;
+        if (!pool || this._loadingIcons) return;
+
+        var numbers = [];
+        var first = this._page * g.columns * g.rows;
+        for (var i = 0; i < g.columns * g.rows; i++) {
+            var number = GD.iconNumberAt(pool, first + i);
+            if (number && !GD.iconFrameLoaded(pool, number)) numbers.push(number);
+        }
+        if (!numbers.length) return;
+
+        this._loadingIcons = true;
+        var started = GD.preloadIcons(pool, numbers, function () {
+            this._loadingIcons = false;
+            this.buildGrid();
+            this.updatePreview();
+        }, this);
+        // Nothing to wait for (the textures were already requested elsewhere).
+        if (!started) this._loadingIcons = false;
     },
 
     // Explains the empty grid on tabs the shipped sheet has no icons for.
@@ -1305,26 +1348,56 @@ var GarageLayer = cc.Layer.extend({
     },
 
     /* Sprite frame of the icon shown in a slot, or null when the slot is past
-     * the end of the current icon family. */
+     * the end of the current icon family. The loose set is preferred; frames
+     * from the game sheet are the fallback, and there icons are packed 1..n. */
     iconFrameForSlot: function (slot) {
         var g = GARAGE_LAYOUT.grid;
         var tab = GARAGE_LAYOUT.tabs.items[this._tab];
-        if (!tab.pool || !tab.count) return null;
+        if (!tab.pool) return null;
 
-        var number = this._page * g.columns * g.rows + slot + 1;
-        if (number > tab.count) return null;
+        var index = this._page * g.columns * g.rows + slot;
+        var number = GD.iconNumberAt(tab.pool, index);
+        if (number) {
+            var loose = GD.iconSpriteFrame(tab.pool, number);
+            if (loose) return loose;
+        }
 
-        var name = iconFrameName(tab.pool, number);
-        return name ? cc.SpriteFrameCache.getInstance().getSpriteFrame(name) : null;
+        if (index + 1 > (tab.count || 0)) return null;
+        return cc.SpriteFrameCache.getInstance().getSpriteFrame(iconFrameName(tab.pool, index + 1));
     },
 
     onSlot: function (sender) {
         this._selected = sender.slotIndex;
-
-        var frame = this.iconFrameForSlot(this._selected);
-        if (frame) this._previewCube.setDisplayFrame(frame);
-
+        this.updatePreview();
         this.buildGrid();
+    },
+
+    /* The big preview follows the selection — and the tab, when nothing is
+     * selected yet — so it always shows an icon of the family on screen. The
+     * preview sprite is tinted with the player's colour, and tinting a texture
+     * that is still decoding is not allowed, so the frame is only applied once
+     * the atlas has arrived; until then the previous icon stays up. */
+    updatePreview: function () {
+        var g = GARAGE_LAYOUT.grid;
+        var pool = GARAGE_LAYOUT.tabs.items[this._tab].pool;
+        var number = 0;
+
+        if (pool) {
+            var index = this._selected >= 0 ? this._page * g.columns * g.rows + this._selected : 0;
+            number = GD.iconNumberAt(pool, index);
+        }
+
+        if (!number) {
+            // No loose icons for this tab: keep the default cube.
+            number = 1;
+            pool = "player";
+        }
+
+        if (!GD.iconFrameLoaded(pool, number)) {
+            GD.preloadIcons(pool, [number], this.updatePreview, this);
+            return;
+        }
+        this._previewCube.setDisplayFrame(GD.iconSpriteFrame(pool, number));
     },
 
     // -------------------------------------------------------------- paging
@@ -1346,7 +1419,7 @@ var GarageLayer = cc.Layer.extend({
     pageCount: function () {
         var g = GARAGE_LAYOUT.grid;
         var per = g.columns * g.rows;
-        var count = GARAGE_LAYOUT.tabs.items[this._tab].count || 0;
+        var count = tabIconCount(GARAGE_LAYOUT.tabs.items[this._tab]);
         return Math.max(1, Math.ceil(count / per));
     },
 
@@ -1405,6 +1478,7 @@ var GarageLayer = cc.Layer.extend({
 
         this.refreshDots();
         this.buildGrid();
+        this.updatePreview();
     },
 
     // ---------------------------------------------------------------- tabs
@@ -1451,6 +1525,7 @@ var GarageLayer = cc.Layer.extend({
         this.refreshTabs();
         this.buildDots();
         this.buildGrid();
+        this.updatePreview();
     },
     // -------------------------------------------------------------- chrome
     addChrome: function () {

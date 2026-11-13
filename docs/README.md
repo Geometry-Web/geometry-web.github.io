@@ -25,14 +25,54 @@ recoverable in git history at commit `e23725b`:
 
 | Path | Role |
 | --- | --- |
-| `index.html` | Hosts `#gameCanvas`, loads `cocos2d.js?v=18`, shows a hint if the engine never boots. |
+| `index.html` | Hosts `#gameCanvas`, loads `cocos2d.js?v=20`, shows a hint if the engine never boots. |
 | `cocos2d.js` | Boot config: engine file list, `res` path, cache-busting version, then `main.js`. |
 | `main.js` | `cc.game.run` with `renderMode: 1` (Canvas) — no WebGL dependency. Also installs the one-time audio unlock and the `?kit` switch. |
 | `src/core/` | Shared layer: `GD.js` (namespace, sheets, art/text helpers), `Save.js`, `Audio.js` and `UI.js` — the widget kit every screen draws its buttons, popups and bars from. |
 | `src/resource.js` | Declares every atlas/plist/font; missing files degrade instead of aborting. |
 | `src/MyApp.js` | The app: `MenuScene`, `GarageScene`, `CreateScene`, `StatsScene`, name editor, screens built on the kit. |
 | `src/dev/KitShowcase.js` | `index.html?kit` — renders every kit widget on one page for layout review. |
-| `tools/` | Local helpers: asset server, frame dumper, sheet gallery, PNG size reader. |
+| `tools/` | Local helpers: asset server, frame dumper, sheet gallery, PNG size reader, Icon Kit manifest builder. |
 | `cocos2d/` | cocos2d-html5 v2.2.3 engine source. |
 | `extensions/` | Optional engine extensions, only loaded when `loadExtension` asks for them. |
 | `res/gd/` | Sprite sheets, fonts and UI art used by the scenes. |
+| `res/gd/icons/` | The complete SD player-icon set (1205 tiny atlases + `manifest.json`) the Icon Kit pages through. |
+
+## Icon Kit icon set (`res/gd/icons/`)
+
+GD 2.2 keeps player icons outside the game sheets: every icon is its own tiny
+atlas, `Resources/icons/<family>_<n>.plist` + `.png`, holding the icon body, its
+detail layer and its glow side by side. The sheet this build shipped
+(`GJ_GameSheetIcons`) is a truncated rip — 249 cubes and 79 ships — so the Icon
+Kit ran out of icons after a few pages.
+
+`tools/icon-manifest.js` turns the real resources into what the runtime wants:
+one PNG per icon plus `manifest.json`, a map of `<family>_<n>` → the
+`[x, y, w, h, rotated]` rect of the icon body. No plist is parsed at runtime and
+only the icons of the page being looked at are fetched.
+
+```
+node tools/icon-manifest.js ../gdstuffs/Resources/icons \
+     --out res/gd/icons/manifest.json --copy res/gd/icons
+```
+
+It prints the per-family counts it found and fails loudly on a missing PNG or a
+rect that falls outside its atlas. Current set (icon 0 is GD's "no icon"
+placeholder and is skipped; this install has no cube 140 or 420):
+
+| Family | File prefix | Icons | Pages in the kit |
+| --- | --- | --- | --- |
+| Cubes | `player_` | 483 | 14 |
+| Ships | `ship_` | 169 | 5 |
+| Balls | `player_ball_` | 118 | 4 |
+| UFOs | `bird_` | 149 | 5 |
+| Waves | `dart_` | 96 | 3 |
+| Robots | `robot_` | 68 | 2 |
+| Spiders | `spider_` | 69 | 2 |
+| Swings | `swing_` | 43 | 2 |
+| Jetpacks | `jetpack_` | 8 | 1 |
+
+`GD.ICONS` / `GD.iconManifest()` / `GD.iconCount(pool)` / `GD.iconNumberAt()` /
+`GD.iconSpriteFrame()` / `GD.preloadIcons()` in `src/core/GD.js` are the runtime
+side; `GarageLayer` falls back to the old sheet frames whenever the loose set is
+absent, so the kit still works on a checkout without `res/gd/icons/`.
