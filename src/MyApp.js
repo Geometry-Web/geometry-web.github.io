@@ -540,25 +540,23 @@ var PLAY_LAYOUT = {
 
 
 
+/* Stand-in for screens that are not built yet: the kit's blue gradient, a Pusab
+ * title and a BACK button, so unfinished screens still look like the game. */
 function makePlaceholderScene(title, backScene) {
     var Layer = cc.Layer.extend({
         init: function () {
             this._super();
-            var size = cc.Director.getInstance().getWinSize();
-            var bg = cc.LayerColor.create(cc.c4b(176, 0, 130, 255), size.width, size.height);
-            this.addChild(bg, 0);
-            var label = cc.LabelTTF.create(title, "Arial", 42);
-            label.setPosition(size.width / 2, size.height / 2);
-            label.setColor(cc.c3b(255, 255, 255));
-            this.addChild(label, 1);
-            var back = cc.MenuItemFont.create("BACK", function () {
-                // Optional: the caller can hand in the scene to return to.
-                cc.Director.getInstance().replaceScene(backScene ? backScene() : new MyScene());
-            }, this);
-            back.setFontSize(24);
-            var menu = cc.Menu.create(back);
-            menu.setPosition(size.width / 2, size.height / 2 - 90);
-            this.addChild(menu, 2);
+            GD.loadSheets();
+            GD.UI.background(this, { top: [12, 110, 243], bottom: [30, 45, 150] });
+            GD.UI.heading(this, "" + title, 330, { scale: GD.UI.TEXT.title });
+            GD.UI.button(this, {
+                x: GD.W / 2, y: 200, w: 220, h: 52,
+                text: "BACK", style: "green",
+                onClick: function () {
+                    // Optional: the caller can hand in the scene to return to.
+                    cc.Director.getInstance().replaceScene(backScene ? backScene() : new MyScene());
+                }
+            });
             return true;
         }
     });
@@ -608,81 +606,72 @@ function closeSite() {
     }, 0);
 }
 
+/* The main menu, built entirely from the GD.UI kit: the magenta grid backdrop,
+ * the green Pusab logo and one kit icon button per tile. Going through the kit
+ * means every tile shares the same hit area, press animation and click sound as
+ * the rest of the game's UI instead of each screen rolling its own cc.Menu. */
 var MainMenuLayer = cc.Layer.extend({
     init: function () {
         this._super();
 
-        var cache = cc.SpriteFrameCache.getInstance();
-        cache.addSpriteFrames("res/gd/GJ_GameSheet03.plist");
-        cache.addSpriteFrames("res/gd/GJ_GameSheet04.plist");
+        // Every tile below is a sheet frame; the kit logs anything that is not.
+        GD.loadSheets();
 
         var L = MENU_LAYOUT.elements;
-        var self = this;
 
-        this.addBackground();
+        GD.UI.menuBackground(this, {
+            base: MENU_LAYOUT.colors.backgroundBase,
+            tile: MENU_LAYOUT.colors.backgroundTile,
+            z: 0
+        });
 
-        // Logo.
-        var logo = cc.LabelBMFont.create("Geometry Dash", "res/gd/bigFont.fnt");
-        logo.setScale(L.logo.scale);
-        logo.setColor(cc.c3b(120, 220, 70));
-        logo.setPosition(L.logo.x, L.logo.y);
-        this.addChild(logo, 4);
+        // Logo — the same green Pusab title the real menu draws.
+        GD.UI.heading(this, "Geometry Dash", L.logo.y, {
+            x: L.logo.x,
+            scale: L.logo.scale,
+            color: cc.c3b(120, 220, 70),
+            z: 4
+        });
 
-        // Top / center / side buttons.
-        this.addButton(L.closeButton, this.onQuit);
-        this.addButton(L.garageButton, this.onGarage);
-        this.addButton(L.playButton, this.onPlay);
-        this.addButton(L.buildButton, this.onCreator);
-        this.addButton(L.dailyButton, this.onDaily);
+        // Top / center / side tiles.
+        this.button(L.closeButton, this.onQuit);
+        this.button(L.garageButton, this.onGarage);
+        this.button(L.playButton, this.onPlay);
+        this.button(L.buildButton, this.onCreator);
+        this.button(L.dailyButton, this.onDaily);
 
         // Social cluster.
-        this.addButton(L.socialFb, this.onFacebook);
-        this.addButton(L.socialTw, this.onTwitter);
-        this.addButton(L.socialYt, this.onYoutube);
-        this.addButton(L.socialTwitch, this.onTwitch);
-        this.addButton(L.robtopLogo, this.onRobtop);
-        this.addButton(L.socialDiscord, this.onDiscord);
+        this.button(L.socialFb, this.onFacebook);
+        this.button(L.socialTw, this.onTwitter);
+        this.button(L.socialYt, this.onYoutube);
+        this.button(L.socialTwitch, this.onTwitch);
+        this.button(L.robtopLogo, this.onRobtop);
+        this.button(L.socialDiscord, this.onDiscord);
 
         // Bottom round buttons.
-        this.addButton(L.achButton, this.onAchievements);
-        this.addButton(L.optionsButton, this.onOptions);
-        this.addButton(L.statsButton, this.onStats);
-        this.addButton(L.creatorButton, this.onCreator);
-        this.addButton(L.secretButton, this.onCreator);
+        this.button(L.achButton, this.onAchievements);
+        this.button(L.optionsButton, this.onOptions);
+        this.button(L.statsButton, this.onStats);
+        this.button(L.creatorButton, this.onCreator);
+        this.button(L.secretButton, this.onCreator);
 
         // News.
-        this.addButton(L.newsButton, this.onNews);
+        this.button(L.newsButton, this.onNews);
 
         return true;
     },
 
-    addBackground: function () {
-        var size = cc.Director.getInstance().getWinSize();
-        var base = MENU_LAYOUT.colors.backgroundBase;
-        var tile = MENU_LAYOUT.colors.backgroundTile;
-        var baseLayer = cc.LayerColor.create(cc.c4b(base[0], base[1], base[2], 255), size.width, size.height);
-        this.addChild(baseLayer, 0);
-
-        var cell = 172, gap = 18;
-        for (var gy = 0; gy * cell < size.height + cell; gy++) {
-            for (var gx = 0; gx * cell < size.width + cell; gx++) {
-                var sq = cc.LayerColor.create(cc.c4b(tile[0], tile[1], tile[2], 255), cell - gap, cell - gap);
-                sq.setPosition(gx * cell + gap / 2, gy * cell + gap / 2);
-                this.addChild(sq, 1);
-            }
-        }
-    },
-
-    addButton: function (spec, cb) {
-        var n = cc.Sprite.createWithSpriteFrameName(spec.frame);
-        var s = cc.Sprite.createWithSpriteFrameName(spec.frame);
-        s.setScale(1.08);
-        var item = cc.MenuItemSprite.create(n, s, cb, this);
-        item.setPosition(spec.x, spec.y);
-        if (spec.scale) item.setScale(spec.scale);
-        var menu = cc.Menu.create(item);
-        menu.setPosition(0, 0);
-        this.addChild(menu, 5);
+    /* One menu tile: the kit sprite button takes the layout's frame, centre and
+     * scale, and brings its own press/click handling. */
+    button: function (spec, onClick) {
+        return GD.UI.iconButton(this, {
+            x: spec.x,
+            y: spec.y,
+            frame: spec.frame,
+            scale: spec.scale === undefined ? 1 : spec.scale,
+            z: 5,
+            onClick: onClick
+        });
     },
 
     onPlay: function () { cc.Director.getInstance().replaceScene(new PlayScene()); },

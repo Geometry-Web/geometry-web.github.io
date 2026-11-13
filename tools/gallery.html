@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!-- Frame gallery: every GD UI asset this build draws with, shown at 2x with
+     its native pixel size. Opened during development to confirm what a frame
+     actually looks like and where its 9-slice insets fall; not part of the game. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GD UI frame gallery</title>
+<style>
+  body { margin: 0; padding: 18px; background: #15171c; color: #dfe3ea;
+         font: 13px/1.35 Consolas, monospace; }
+  h2 { margin: 22px 0 8px; font: 700 15px/1 Consolas, monospace; color: #9fd7ff; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; }
+  .cell { width: 168px; background: #1e222a; border: 1px solid #2c323d; border-radius: 4px;
+          padding: 8px; text-align: center; }
+  .cell img { image-rendering: pixelated; max-width: 150px; max-height: 150px; }
+  .cell .n { font-size: 11px; color: #cfd6e2; word-break: break-all; }
+  .cell .s { font-size: 10px; color: #7d879a; }
+  .checker { background-image:
+      linear-gradient(45deg, #2a2f38 25%, transparent 25%, transparent 75%, #2a2f38 75%),
+      linear-gradient(45deg, #2a2f38 25%, #232730 25%, #232730 75%, #2a2f38 75%);
+      background-size: 16px 16px; background-position: 0 0, 8px 8px; }
+</style>
+</head>
+<body>
+<h1 style="font-size:17px">GD 2.2 UI frames in this build</h1>
+<div id="out"></div>
+<script>
+const GROUPS = {
+  "Popup frames (GJ_square*)": ["GJ_square01","GJ_square02","GJ_square03","GJ_square04","GJ_square05","GJ_square06","GJ_square07","GJ_squareB_01"],
+  "Buttons (GJ_button_*)": ["GJ_button_01","GJ_button_02","GJ_button_03","GJ_button_04","GJ_button_05","GJ_button_06"],
+  "Full popups": ["GJ_popup","GJ_popupLite","GJ_popupMD","GJ_popupSZ","GJ_popupWorld"],
+  "Sliders / bars": ["sliderBar","sliderBar2","slidergroove","slidergroove2","slidergroove_02","sliderthumb","sliderthumbsel","GJ_progressBar_001","edit_barBG_001"],
+  "Misc chrome": ["GJ_gradientBG","GJ_colorThumbBtn","GJ_moveBtn","circle","square","smallDot","loadingCircle","gk-icon","dialogIcon_001"]
+};
+const out = document.getElementById("out");
+for (const [title, names] of Object.entries(GROUPS)) {
+  const h = document.createElement("h2"); h.textContent = title; out.appendChild(h);
+  const grid = document.createElement("div"); grid.className = "grid"; out.appendChild(grid);
+  for (const n of names) {
+    const cell = document.createElement("div"); cell.className = "cell checker";
+    const img = document.createElement("img");
+    img.src = "../res/gd/" + n + ".png";
+    img.style.width = "150px"; img.style.height = "auto";
+    img.onload = () => { size.textContent = img.naturalWidth + " x " + img.naturalHeight; };
+    const name = document.createElement("div"); name.className = "n"; name.textContent = n;
+    const size = document.createElement("div"); size.className = "s"; size.textContent = "…";
+    cell.append(img, name, size); grid.appendChild(cell);
+  }
+}
+
+/* ---- frames that live inside a shipped sprite sheet ---- */
+/* Cropping them out of the PNG with the plist rects beats guessing from names. */
+const SHEET_FRAMES = {
+  "res/gd/GJ_GameSheet03.plist": [
+    "GJ_longBtn01_001.png","GJ_longBtn02_001.png","GJ_longBtn03_001.png","GJ_longBtn04_001.png",
+    "GJ_longBtn05_001.png","GJ_longBtn06_001.png","GJ_longBtn07_001.png",
+    "GJ_tabOn_001.png","GJ_tabOff_001.png","GJ_checkOn_001.png","GJ_checkOff_001.png",
+    "GJ_table_top_001.png","GJ_table_bottom_001.png","GJ_table_side_001.png","GJ_table_corner_001.png",
+    "GJ_table_top02_001.png","GJ_topBar_001.png",
+    "difficulty_00_btn_001.png","difficulty_03_btn_001.png","difficulty_07_btn_001.png",
+    "GJ_bigStar_001.png","GJ_starsIcon_001.png","GJ_moonsIcon_001.png","GJ_diamondsIcon_001.png",
+    "GJ_coinsIcon_001.png","GJ_bigKey_001.png","currencyOrbIcon_001.png",
+    "GJ_downloadsIcon_001.png","GJ_likesIcon_001.png","GJ_demonIcon_001.png","GJ_featuredIcon_001.png",
+    "GJ_epicCoin_001.png","GJ_completesIcon_001.png","GJ_attemptsIcon_001.png",
+    "GJ_lock_001.png","GJ_lock_open_001.png","GJLargeLock_001.png","GJ_infoIcon_001.png",
+    "GJ_arrow_01_001.png","GJ_arrow_02_001.png","GJ_arrow_03_001.png","GJ_backBtn_001.png",
+    "GJ_closeBtn_001.png","GJ_pauseBtn_001.png","GJ_practiceBtn_001.png","GJ_playBtn2_001.png",
+    "GJ_replayBtn_001.png","GJ_restartCheckBtn_001.png","GJ_levelComplete_001.png","GJ_newBest_001.png"
+  ]
+};
+
+function parseRect(s) {
+  const n = (s || "").replace(/[{}]/g, "").split(",").map(Number);
+  return { x: n[0], y: n[1], w: n[2], h: n[3] };
+}
+
+async function addSheetFrames(plist, frames) {
+  const h = document.createElement("h2");
+  h.textContent = "Sheet frames: " + plist.split("/").pop();
+  out.appendChild(h);
+  const grid = document.createElement("div"); grid.className = "grid"; out.appendChild(grid);
+
+  const xml = new DOMParser().parseFromString(await (await fetch("../" + plist)).text(), "text/xml");
+  const lookup = {};
+  for (const k of xml.querySelectorAll("key")) {
+    const d = k.nextElementSibling;
+    if (!d || d.tagName !== "dict") continue;
+    const entries = d.children;
+    for (let i = 0; i < entries.length; i += 2) {
+      if (entries[i].textContent === "textureRect") lookup[k.textContent] = parseRect(entries[i + 1].textContent);
+    }
+  }
+  const png = await new Promise(res => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.src = "../" + plist.replace(/\.plist$/, ".png");
+  });
+
+  for (const name of frames) {
+    const r = lookup[name];
+    const cell = document.createElement("div"); cell.className = "cell checker";
+    const cv = document.createElement("canvas");
+    if (r) {
+      cv.width = r.w * 2; cv.height = r.h * 2;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(png, r.x, r.y, r.w, r.h, 0, 0, cv.width, cv.height);
+    }
+    cv.style.width = "150px"; cv.style.height = "auto"; cv.style.maxHeight = "110px";
+    const nm = document.createElement("div"); nm.className = "n"; nm.textContent = name.replace("_001.png", "");
+    const sz = document.createElement("div"); sz.className = "s";
+    sz.textContent = r ? r.w + " x " + r.h : "not in sheet";
+    cell.append(cv, nm, sz); grid.appendChild(cell);
+  }
+}
+
+(async () => {
+  for (const [plist, frames] of Object.entries(SHEET_FRAMES)) await addSheetFrames(plist, frames);
+  window.__galleryReady = true;
+})();
+</script>
+</body>
+</html>

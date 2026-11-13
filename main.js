@@ -36,6 +36,22 @@ var cocos2dApp = cc.Application.extend({
         director.setAnimationInterval(1.0 / this.config['frameRate']);
 
         cc.LoaderScene.preload(g_resources, function () {
+            // Every screen draws from the shipped sheets/labels, so make sure the
+            // frame cache is populated before the first layer builds itself.
+            GD.loadSheets();
+
+            // Browsers only allow audio to start after a user gesture; this is the
+            // one place that waits for it, so the rest of the game can just play.
+            var unlockAudio = function () {
+                GD.Audio.unlock();
+                document.removeEventListener("mousedown", unlockAudio);
+                document.removeEventListener("touchstart", unlockAudio);
+                document.removeEventListener("keydown", unlockAudio);
+            };
+            document.addEventListener("mousedown", unlockAudio);
+            document.addEventListener("touchstart", unlockAudio);
+            document.addEventListener("keydown", unlockAudio);
+
             director.replaceScene(new this.startScene());
         }, this);
 
@@ -43,4 +59,10 @@ var cocos2dApp = cc.Application.extend({
     }
 });
 
-var myApp = new cocos2dApp(MyScene);
+/* `?kit` (or `#kit`) boots the GD.UI widget showcase instead of the game menu.
+   It is a development page: it renders every component in the kit on one screen
+   so layout regressions are visible in a single screenshot. */
+var KIT_SHOWCASE = /(?:^|[?&])kit(?:=|\b)/.test(window.location.search) ||
+                   window.location.hash === "#kit";
+
+var myApp = new cocos2dApp(KIT_SHOWCASE ? KitShowcaseScene : MyScene);

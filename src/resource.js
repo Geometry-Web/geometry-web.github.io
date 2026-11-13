@@ -19,6 +19,37 @@ var g_resources = [
     // Gold (Pusab) font for the Stats counters and the brown stats backdrop.
     { type: "image", src: "res/gd/goldFont.png" },
     { src: "res/gd/goldFont.fnt" },
-    { type: "image", src: "res/gd/game_bg_01_001.png" }
+    { type: "image", src: "res/gd/game_bg_01_001.png" },
+
+    // Loose UI art used by the GD.UI widget kit. These are standalone PNGs, not
+    // sheet frames, so GD.frameSprite() resolves them through GD.looseSize().
+    // Loading them here keeps the first frame of the first screen complete.
+    { type: "image", src: "res/gd/GJ_gradientBG.png" },
+    { type: "image", src: "res/gd/GJ_progressBar_001.png" },
+    { type: "image", src: "res/gd/loadingCircle.png" },
+    { type: "image", src: "res/gd/slidergroove.png" },
+    { type: "image", src: "res/gd/sliderBar.png" },
+    { type: "image", src: "res/gd/sliderthumb.png" },
+    { type: "image", src: "res/gd/sliderthumbsel.png" },
+    { type: "image", src: "res/gd/GJ_button_01.png" },
+    { type: "image", src: "res/gd/GJ_button_02.png" },
+    { type: "image", src: "res/gd/GJ_button_03.png" },
+    { type: "image", src: "res/gd/GJ_button_04.png" },
+    { type: "image", src: "res/gd/GJ_button_05.png" },
+    { type: "image", src: "res/gd/GJ_button_06.png" },
+    { type: "image", src: "res/gd/GJ_square01.png" },
+    { type: "image", src: "res/gd/GJ_square02.png" },
+    { type: "image", src: "res/gd/GJ_square03.png" },
+    { type: "image", src: "res/gd/GJ_square04.png" },
+    { type: "image", src: "res/gd/GJ_square05.png" },
+    { type: "image", src: "res/gd/GJ_square06.png" },
+    { type: "image", src: "res/gd/GJ_square07.png" },
+    { type: "image", src: "res/gd/GJ_squareB_01.png" },
+    { type: "image", src: "res/gd/groundSquare_01_001.png" },
+    { type: "image", src: "res/gd/groundSquare_02_001.png" },
+    { type: "image", src: "res/gd/groundSquare_03_001.png" },
+    { type: "image", src: "res/gd/groundSquare_04_001.png" },
+    { type: "image", src: "res/gd/groundSquare_05_001.png" },
+    { type: "image", src: "res/gd/groundSquare_06_001.png" }
 ];
 
