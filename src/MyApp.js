@@ -461,32 +461,41 @@ var PLAYER_PROFILE = (function () {
     };
 })();
 
-/* Geometry Dash "play" scene (PlayLayer) — the level the counters are earned in.
+/* Geometry Dash's play scene (PlayLayer): one imported level, run at GD's own
+ * pace.
  *
- * Real GD scale: one grid cell is a 30px sprite drawn at `scale` 2, so the
- * world is measured in 60px cells. The cube keeps a fixed screen x and the
- * level scrolls past it; `groundY` is the screen y of the ground surface.
+ * The world is measured in *level units* — 30 per grid cell, x to the right from
+ * the start of the level, y up from the ground — and drawn at `scale`, so one
+ * cell is 60px on the 960x540 canvas. The player keeps a fixed screen x and the
+ * level scrolls past.
  *
- * `level` is the whole layout, measured in px from the start of the run:
- *   spike — one cell wide, kills on contact,
- *   block — `h` cells tall, kills on the sides but can be landed on,
- *   orb   — a floating ring worth `orbsPerOrb` mana orbs.
+ *   block  — solid 1x1 tile: land on it, crash into its side
+ *   spike  — hazard, kills on contact
+ *   orb    — tap while touching it for a jump, mid-air
+ *   pad    — fires the moment the player runs into it
+ *   portal — switches game mode (cube/ship/ball/...) or flips gravity
+ *   coin   — one of the level's three secret coins
  */
 var PLAY_LAYOUT = {
     font: "res/gd/bigFont.fnt",
-    scale: 2,                 // 30px art -> 60px, one grid cell
-    cell: 60,
+    scale: 2,                 // 30 unit art -> 60px, one grid cell
+    unit: 30,                 // level units in one cell
     groundY: 90,              // screen y of the ground surface
-    playerX: 220,             // screen x of the cube
-    playerSize: 60,           // 30px cube at scale 2
-    hitHalfWidth: 22,         // forgiving horizontal hitbox
-    speed: 380,               // world scroll, px per second
-    gravity: -2400,           // px per second squared
-    jumpSpeed: 850,           // apex ~150px (2.5 cells), air time ~0.71s
-    spin: 540,                // deg/s the cube turns while airborne
-    endPad: 460,              // runway after the last obstacle
-    orbsPerOrb: 5,            // mana orbs granted by one ring
+    playerX: 220,             // screen x of the player
+    playerSize: 30,           // units: the icon is 30 units square
+    hitHalf: 15,              // half width of the solid hitbox
+    hazardHalf: 11,           // tighter box for spikes, like GD's generous hitbox
+    playHeight: 300,          // units: GD's play area is ten cells tall
+    endPad: 180,              // units of runway past the last object
+    viewCells: 7.5,           // cells above the ground that fit on screen
+    groundDepth: 460,         // px of ground drawn below the ground line
     respawnDelay: 0.7,        // seconds between a crash and the next attempt
+    /* Scroll speed in units per second, by speed portal (0.5x .. 4x) — GD's own
+     * numbers. Without a speed portal a level runs at 1x. */
+    speeds: [251.16, 311.58, 387.42, 468.0, 576.0],
+    speedIndex: 1,
+    spin: 540,                // deg/s the cube turns while airborne
+    maxFall: 900,             // units/s cap on the fall
     colors: {
         skyTop: [30, 58, 164],
         skyBottom: [88, 134, 228],
@@ -505,45 +514,102 @@ var PLAY_LAYOUT = {
         backArrow: { frame: "GJ_arrow_03_001.png", x: 42, y: 497, scale: 1.35 },
         track: { x: 300, y: 512, width: 480, height: 14 },
         percent: { x: 812, y: 512, scale: 0.5 },
-        orbs: { frame: "currencyOrbIcon_001.png", x: 108, y: 512, scale: 1.1,
-                numberX: 148, numberScale: 0.5 },
+        // The three secret-coin slots, dimmed until the coin is collected.
+        coins: { frame: "secretCoin_01_001.png", x: 858, y: 512, scale: 0.55, pitch: 30 },
+        level: { x: 480, y: 466, scale: 0.62 },
         attempt: { x: 480, y: 372, scale: 0.8 },
         complete: { x: 480, y: 330, scale: 1.3 },
         info: { x: 480, y: 270, scale: 0.55 },
         hint: { x: 480, y: 222, scale: 0.5 }
     },
-    frames: {
-        player: "player_01_001.png",
-        spike: "spike_01_001.png",
-        block: "square_01_001.png",
-        orb: "ring_01_001.png"
+    /* GD's block art has its interior baked in, so a tinted `square_01` can only
+     * colour the border. Blocks are therefore a colour fill plus the dark
+     * outline on top, which is what the real game draws. */
+    blockFill: "lightsquare_01_01_color_001.png",
+    blockFillScale: 1,        // fill covers the whole cell
+    /* Game modes a portal can switch to. `gravity` and `thrust` are units per
+     * second (squared for the accelerations), `tap` is what the input does:
+     *   jump  — only on the ground (cube, robot)
+     *   flip  — flips gravity anywhere (ball, spider)
+     *   hop   — a jump in mid-air too (UFO)
+     *   hold  — the input is a thruster that is on while held (ship, swing,
+     *           jetpack); the wave steers instead of accelerating. */
+    modes: {
+        cube:    { gravity: 1900, jump: 500, spin: 540,
+                   pool: "player",      frame: "player_%n_001.png" },
+        ship:    { gravity: 1300, thrust: 2600, cap: 640, hold: true,
+                   pool: "ship",        frame: "ship_%n_001.png" },
+        ball:    { gravity: 1900, flip: true, spin: -540,
+                   pool: "player_ball", frame: "player_ball_%n_001.png" },
+        ufo:     { gravity: 1500, hop: 430,
+                   pool: "bird",        frame: "bird_%n_001.png" },
+        wave:    { gravity: 0, wave: 0.55,
+                   pool: "dart",        frame: "dart_%n_001.png" },
+        robot:   { gravity: 2000, jump: 560, spin: 540,
+                   pool: "robot",       frame: "robot_%n_01_001.png" },
+        spider:  { gravity: 1900, flip: true, snap: true,
+                   pool: "spider",      frame: "spider_%n_01_001.png" },
+        swing:   { gravity: 1600, thrust: 2400, cap: 620, hold: true,
+                   pool: "swing",       frame: "swing_01_001.png" },
+        jetpack: { gravity: 1500, thrust: 2400, cap: 620, hold: true,
+                   pool: "pack",        frame: "pack_01_001.png" }
     },
-    orbHitRadius: 46,         // px around the ring that count as a pickup
-    // The layout of the level itself. Rings sit either on the ground (picked up
-    // by simply running through them) or at apex height above a spike group,
-    // where only a well-timed jump reaches them.
-    level: [
-        { kind: "spike", x: 900 },
-        { kind: "orb",   x: 1080, y: 30 },
-        { kind: "spike", x: 1260 },
-        { kind: "block", x: 1560, h: 1 },
-        { kind: "orb",   x: 1700, y: 30 },
-        { kind: "spike", x: 1860 },
-        { kind: "spike", x: 1920 },
-        { kind: "orb",   x: 1835, y: 180 },
-        { kind: "block", x: 2400, h: 1 },
-        { kind: "spike", x: 2700 },
-        { kind: "orb",   x: 2850, y: 30 },
-        { kind: "block", x: 3180, h: 2 },
-        { kind: "spike", x: 3480 },
-        { kind: "spike", x: 3540 },
-        { kind: "orb",   x: 3455, y: 180 },
-        { kind: "block", x: 3900, h: 1 },
-        { kind: "orb",   x: 4040, y: 30 },
-        { kind: "spike", x: 4200 },
-        { kind: "spike", x: 4260 }
-    ]
+    /* What each orb and pad is worth, in units per second. The blue orb flips
+     * gravity instead of throwing the player up (`flip: true`). */
+    orbs: {
+        yellow: { jump: 500 },
+        blue:   { flip: true, jump: 300 },
+        pink:   { jump: 430 },
+        green:  { jump: 560 },
+        red:    { jump: 560 },
+        black:  { jump: 400 }
+    },
+    pads: {
+        yellow: { jump: 620 },
+        blue:   { flip: true, jump: 420 },
+        pink:   { jump: 520 }
+    }
 };
+
+
+/* -------------------------------------------------------------------------
+ * Level select (LevelSelectLayer) — the screen the PLAY tile opens.
+ *
+ * One row per level: difficulty face, name, stars and the player's best run.
+ * The list is virtual (only `rows.count` row nodes ever exist) and scrolls by
+ * drag or with the arrow buttons, because a level set is longer than a screen.
+ * Sizes are design px on the 960x540 canvas.
+ * ---------------------------------------------------------------------- */
+var LEVEL_SELECT_LAYOUT = {
+    font: "res/gd/bigFont.fnt",
+    colors: {
+        row: [18, 32, 88, 235],
+        rowLine: [255, 255, 255, 48],
+        band: [255, 255, 255, 18],
+        name: [255, 255, 255],
+        dim: [190, 200, 220],
+        gold: [255, 216, 66]
+    },
+    list: { x: 480, y: 262, width: 760, height: 392 },
+    rows: {
+        top: 452, pitch: 60, count: 6,
+        width: 744, height: 54,
+        // x offsets are measured from the centre of the list (list.x), because a
+        // row node is placed there and its parts hang off it.
+        faceX: -330, nameX: -284, starX: 292, bestX: 360,
+        faceScale: 0.9, nameScale: 0.62, valueScale: 0.68
+    },
+    heading: { text: "SELECT LEVEL", y: 492 },
+    arrows: {
+        up:   { frame: "GJ_arrow_03_001.png", x: 906, y: 400, scale: 1.1, rotation: 90 },
+        down: { frame: "GJ_arrow_03_001.png", x: 906, y: 124, scale: 1.1, rotation: -90 }
+    },
+    back: { frame: "GJ_arrow_03_001.png", x: 42, y: 497, scale: 1.35 },
+    importBtn: { x: 128, y: 44, width: 196, height: 54, text: "IMPORT" },
+    hint: { x: 700, y: 44, scale: 0.5, text: "Drag or use the arrows" },
+    empty: { x: 480, y: 262, scale: 0.6, text: "No levels yet - run tools/level-import.js" }
+};
+
 
 
 
@@ -683,7 +749,7 @@ var MainMenuLayer = cc.Layer.extend({
         });
     },
 
-    onPlay: function () { cc.Director.getInstance().replaceScene(new PlayScene()); },
+    onPlay: function () { cc.Director.getInstance().replaceScene(new LevelSelectScene()); },
     onGarage: function () { cc.Director.getInstance().replaceScene(new GarageScene()); },
     onCreator: function () { cc.Director.getInstance().replaceScene(new CreatorScene()); },
     onDaily: function () { cc.Director.getInstance().replaceScene(makePlaceholderScene("DAILY LEVEL")); },
@@ -1897,60 +1963,402 @@ var StatsScene = cc.Scene.extend({
 });
 
 /* -------------------------------------------------------------------------
- * PlayLayer — the one playable level, opened by the big PLAY button.
+ * Level select — the screen the PLAY tile opens.
  *
- * Tap / click anywhere to jump. The run writes straight into PLAYER_STATS:
- * an attempt is counted when it starts, a jump when you leave the ground, an
- * orb for every ring you touch, and finishing the level is worth a completed
- * level plus a star. The Stats table and the Icon Kit show the result the
- * moment you go back to the menu.
+ * One row per level: the difficulty face, the name, what the level is worth and
+ * the player's best run. Only `rows.count` row nodes exist; `refresh()` maps
+ * them onto the level list at the current scroll offset, so a 22 level set costs
+ * the same as a five level one. `IMPORT` reads a .gmd / .dat / level string and
+ * drops it into the same list (see GD.Levels.readFile).
  * ---------------------------------------------------------------------- */
-var PlayLayer = cc.Layer.extend({
+var LevelSelectLayer = cc.Layer.extend({
     init: function () {
         this._super();
+        GD.loadSheets();
 
-        this._scroll = 0;        // world px travelled
-        this._y = 0;             // cube height above the ground surface
-        this._vy = 0;            // vertical speed, px/s
+        this._levels = GD.Levels.list();
+        this._scroll = 0;          // top row index, fractional while dragging
+        this._drag = null;         // {startY, scroll, moved}
+
+        this.addBackground();
+        this.addRows();
+        this.addChrome();
+        this.refresh();
+
+        this.setTouchMode(cc.TOUCH_ONE_BY_ONE);
+        this.setTouchPriority(1);
+        this.setTouchEnabled(true);
+
+        GD.Audio.music("menu");
+        return true;
+    },
+
+    addBackground: function () {
+        GD.UI.background(this, { top: [12, 110, 243], bottom: [26, 40, 140], ground: false, z: 0 });
+
+        // A soft band behind the list so the rows read against the gradient.
+        var l = LEVEL_SELECT_LAYOUT.list;
+        this.addQuad(l.x - l.width / 2, l.y - l.height / 2, l.width, l.height,
+                     [0, 0, 0, 60], this, 1);
+    },
+
+    /* --------------------------------------------------------------- rows */
+    addRows: function () {
+        var R = LEVEL_SELECT_LAYOUT.rows;
+        this._rows = [];
+
+        for (var i = 0; i < R.count; i++) {
+            var root = cc.Node.create();
+            this.addChild(root, 4);
+
+            var row = { root: root };
+            var panel = GD.UI.nine(GD.UI.PANEL.dark, R.width, R.height, GD.UI.PANEL_INSETS);
+            root.addChild(panel, 0);
+
+            // Started from a real frame: setDisplayFrame() needs a texture, and a
+            // bare cc.Sprite.create() has none.
+            row.face = cc.Sprite.createWithSpriteFrame(this.faceFrame(0));
+            row.face.setScale(R.faceScale);
+            row.face.setPosition(R.faceX, 0);
+            root.addChild(row.face, 1);
+
+            row.name = GD.label("", { scale: R.nameScale, anchor: [0, 0.5] });
+            row.name.setPosition(R.nameX, 4);
+            root.addChild(row.name, 1);
+
+            row.author = GD.label("", { scale: R.valueScale, anchor: [0, 0.5],
+                                        color: LEVEL_SELECT_LAYOUT.colors.dim });
+            row.author.setPosition(R.nameX, -16);
+            root.addChild(row.author, 1);
+
+            row.starIcon = GD.sprite("GJ_starsIcon_001.png");
+            row.starIcon.setScale(0.8);
+            row.starIcon.setPosition(R.starX, 0);
+            root.addChild(row.starIcon, 1);
+
+            row.stars = GD.label("", { scale: R.valueScale, anchor: [0, 0.5],
+                                       color: LEVEL_SELECT_LAYOUT.colors.gold });
+            row.stars.setPosition(R.starX + 20, 0);
+            root.addChild(row.stars, 1);
+
+            row.best = GD.label("", { scale: R.valueScale, anchor: [1, 0.5],
+                                      color: LEVEL_SELECT_LAYOUT.colors.dim });
+            row.best.setPosition(R.bestX, 0);
+            root.addChild(row.best, 1);
+
+            this._rows.push(row);
+        }
+    },
+
+    /* Paints one row with a level. `entry` is a manifest entry or an import. */
+    fillRow: function (row, entry) {
+        var record = GD.Save.level(this.levelKey(entry)) || {};
+
+        row.face.setDisplayFrame(this.faceFrame(entry.diff));
+        row.name.setString("" + entry.name);
+        row.author.setString(entry.author ? "by " + entry.author : "");
+        row.stars.setString(entry.stars ? "" + entry.stars : "");
+        row.starIcon.setVisible(!!entry.stars);
+        row.stars.setVisible(!!entry.stars);
+
+        var best = record.normal || 0;
+        row.best.setString(record.completed ? "100%" : (best ? best + "%" : ""));
+    },
+
+    faceFrame: function (diff) {
+        var cache = cc.SpriteFrameCache.getInstance();
+        return cache.getSpriteFrame(GD.A.difficulty(Math.max(0, Math.min(10, diff || 0))));
+    },
+
+    /* The save key of a level: the main set is keyed by id, an imported level by
+     * its name (it has no id GD would recognise). */
+    levelKey: function (entry) {
+        if (!entry) return "official:0";
+        return entry.local !== undefined ? "local:" + entry.name : "official:" + entry.id;
+    },
+
+    /* Positions the row nodes for the current scroll offset. */
+    refresh: function () {
+        var R = LEVEL_SELECT_LAYOUT.rows;
+        var base = Math.floor(this._scroll);
+        var offset = (this._scroll - base) * R.pitch;
+
+        for (var i = 0; i < this._rows.length; i++) {
+            var row = this._rows[i];
+            var entry = this._levels[base + i];
+
+            row.root.setVisible(!!entry);
+            if (!entry) continue;
+
+            row.root.setPosition(LEVEL_SELECT_LAYOUT.list.x, R.top - i * R.pitch - offset);
+            this.fillRow(row, entry);
+        }
+    },
+
+    maxScroll: function () {
+        var R = LEVEL_SELECT_LAYOUT.rows;
+        return Math.max(0, this._levels.length - R.count);
+    },
+
+    setScroll: function (value) {
+        this._scroll = GD.clamp(value, 0, this.maxScroll());
+        this.refresh();
+    },
+
+    /* ------------------------------------------------------------- chrome */
+    addChrome: function () {
+        var L = LEVEL_SELECT_LAYOUT;
+        var layer = this;
+
+        GD.UI.heading(this, L.heading.text, L.heading.y, { scale: GD.UI.TEXT.heading, z: 20 });
+
+        if (!this._levels.length) {
+            var empty = GD.label(L.empty.text, { scale: L.empty.scale, width: 700,
+                                                 align: cc.TEXT_ALIGNMENT_CENTER });
+            empty.setPosition(L.empty.x, L.empty.y);
+            this.addChild(empty, 20);
+        }
+
+        // Back arrow, same chrome as every other screen (a cc.Menu keeps it in
+        // front of the drag handling below).
+        var normal = cc.Sprite.createWithSpriteFrameName(L.back.frame);
+        var selected = cc.Sprite.createWithSpriteFrameName(L.back.frame);
+        selected.setScale(1.12);
+        var item = cc.MenuItemSprite.create(normal, selected, this.onBack, this);
+        item.setScale(L.back.scale);
+        item.setPosition(L.back.x, L.back.y);
+        var menu = cc.Menu.create(item);
+        menu.setPosition(0, 0);
+        this.addChild(menu, 30);
+
+        // Scroll arrows: one page per tap, like GD's own list arrows.
+        var up = GD.UI.iconButton(this, {
+            frame: L.arrows.up.frame, x: L.arrows.up.x, y: L.arrows.up.y,
+            scale: L.arrows.up.scale, z: 20,
+            onClick: function () { layer.setScroll(Math.round(layer._scroll) - (L.rows.count - 1)); }
+        });
+        if (up._sprite) up._sprite.setRotation(L.arrows.up.rotation);
+
+        var down = GD.UI.iconButton(this, {
+            frame: L.arrows.down.frame, x: L.arrows.down.x, y: L.arrows.down.y,
+            scale: L.arrows.down.scale, z: 20,
+            onClick: function () { layer.setScroll(Math.round(layer._scroll) + (L.rows.count - 1)); }
+        });
+        if (down._sprite) down._sprite.setRotation(L.arrows.down.rotation);
+
+        GD.UI.button(this, {
+            x: L.importBtn.x, y: L.importBtn.y, w: L.importBtn.width, h: L.importBtn.height,
+            text: L.importBtn.text, style: "cyan", z: 20,
+            onClick: function () { layer.onImport(); }
+        });
+
+        var hint = GD.label(L.hint.text, { scale: L.hint.scale, color: LEVEL_SELECT_LAYOUT.colors.dim });
+        hint.setPosition(L.hint.x, L.hint.y);
+        this.addChild(hint, 20);
+    },
+
+    onBack: function () {
+        GD.Audio.stopMusic();
+        cc.Director.getInstance().replaceScene(new MyScene());
+    },
+
+    /* -------------------------------------------------------------- import */
+    /* A hidden file picker. A `.gmd` export, `CCLocalLevels.dat` and a plain level
+     * string all arrive through the same reader; whatever it holds is added to
+     * the list and started right away. */
+    onImport: function () {
+        var layer = this;
+
+        if (!this._fileInput) {
+            var input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".gmd,.dat,.txt,.plist,.xml";
+            input.style.display = "none";
+            input.addEventListener("change", function () {
+                var file = input.files && input.files[0];
+                input.value = "";
+                if (file) layer.onFile(file);
+            });
+            document.body.appendChild(input);
+            this._fileInput = input;
+        }
+        this._fileInput.click();
+    },
+
+    onFile: function (file) {
+        var layer = this;
+        var scene = this.getParent() || this;
+        var loading = GD.UI.loading(scene, "IMPORTING...");
+
+        GD.Levels.readFile(file, function (sources) {
+            loading.close();
+
+            var source = sources && sources[0];
+            var level = source ? GD.Levels.parse(source.data, {
+                id: "imported", name: source.name, author: source.author
+            }) : null;
+
+            if (!level || !level.objects.length) {
+                GD.UI.alert(scene, "IMPORT FAILED", "That file has no level this build can read.");
+                return;
+            }
+
+            var entry = GD.Levels.remember(level);
+            layer._levels = GD.Levels.list();
+            layer._scroll = Math.max(0, layer._levels.length - LEVEL_SELECT_LAYOUT.rows.count);
+            layer.refresh();
+            GD.UI.toast(scene, "Imported: " + level.name);
+            layer.play(entry);
+        });
+    },
+
+    /* --------------------------------------------------------------- input */
+    onTouchBegan: function (touch) {
+        this._drag = { startY: touch.getLocation().y, scroll: this._scroll, moved: false };
+        return true;
+    },
+
+    onTouchMoved: function (touch) {
+        if (!this._drag) return;
+        var dy = touch.getLocation().y - this._drag.startY;
+        if (Math.abs(dy) > 8) this._drag.moved = true;
+
+        this._scroll = GD.clamp(this._drag.scroll + dy / LEVEL_SELECT_LAYOUT.rows.pitch,
+                                0, this.maxScroll());
+        this.refresh();
+    },
+
+    onTouchEnded: function (touch) {
+        var drag = this._drag;
+        this._drag = null;
+        if (!drag) return;
+
+        // A drag only snap the list to the nearest row; a clean tap plays the row
+        // under the pointer.
+        if (drag.moved) { this.setScroll(Math.round(this._scroll)); return; }
+
+        var R = LEVEL_SELECT_LAYOUT.rows;
+        var base = Math.floor(this._scroll);
+        var offset = (this._scroll - base) * R.pitch;
+        var y = touch.getLocation().y;
+
+        // Rows are centred on their slot, and the slot moves by the fractional
+        // part of the scroll, so the hit test has to use the same maths.
+        for (var i = 0; i < this._rows.length; i++) {
+            var centre = R.top - i * R.pitch - offset;
+            if (y <= centre + R.height / 2 && y >= centre - R.height / 2 &&
+                this._levels[base + i]) {
+                this.play(this._levels[base + i]);
+                return;
+            }
+        }
+    },
+
+    onTouchCancelled: function () {
+        this._drag = null;
+    },
+
+    play: function (entry) {
+        if (!entry) return;
+        GD.Audio.sfx("click");
+        cc.Director.getInstance().replaceScene(new PlayScene(entry));
+    },
+
+    /* ------------------------------------------------------------- helpers */
+    // LayerColor is bottom-left anchored, so (x, y) is the lower-left corner.
+    addQuad: function (x, y, w, h, rgba, parent, z) {
+        var quad = cc.LayerColor.create(
+            cc.c4b(rgba[0], rgba[1], rgba[2], rgba.length > 3 ? rgba[3] : 255), w, h);
+        quad.setPosition(x, y);
+        (parent || this).addChild(quad, z || 0);
+        return quad;
+    }
+});
+
+var LevelSelectScene = cc.Scene.extend({
+    onEnter: function () {
+        this._super();
+        var layer = new LevelSelectLayer();
+        this.addChild(layer);
+        layer.init();
+    }
+});
+
+/* -------------------------------------------------------------------------
+ * PlayLayer — one imported level, played at GD's pace.
+ *
+ * The level comes from GD.Levels (levels/<id>.json, or a file the player
+ * imported) as a list of objects sorted by x, in level units. A run writes
+ * attempts and jumps into PLAYER_STATS (the Stats table) and the best %, coins
+ * and completion into GD.Save, so the level select shows what has been done.
+ *
+ * Physics runs in "player space": y is measured with gravity pulling DOWN, so a
+ * gravity portal only has to flip `_gravity` and all the collision code stays
+ * one-sided. `worldY()` converts back for drawing.
+ * ---------------------------------------------------------------------- */
+/* Save-file key of each icon pool (GD keeps one selected icon per mode). */
+var PLAYER_PROFILE_KEY = {
+    player: "cube", ship: "ship", player_ball: "ball", bird: "ufo", dart: "wave",
+    robot: "robot", spider: "spider", swing: "swing", pack: "jetpack"
+};
+
+var PlayLayer = cc.Layer.extend({
+    init: function (entry) {
+        this._super();
+
+        this._entry = entry || null;
+        this._level = GD.Levels.entry(this._entry);
+        this._objects = this._level ? this._level.objects : [];
+        this._key = this.saveKey();
+
+        this._x = 0;             // player position along the level, units
+        this._y = 0;             // player bottom, player space
+        this._vy = 0;
+        this._prevY = 0;
+        this._mode = "cube";
+        this._gravity = 1;       // 1 = normal, -1 = flipped
         this._onGround = true;
+        this._hold = false;      // pointer down (ship / wave / swing thrust)
+        this._tap = false;       // a tap waiting to be spent this frame
         this._dead = false;
         this._finished = false;
         this._respawn = 0;
-        this._runOrbs = 0;
+        this._cameraY = 0;
+        this._coins = [false, false, false];
+        this._speedIndex = PLAY_LAYOUT.speedIndex;
 
         this.addSpriteFrames();
         this.addSky();
         this.addGround();
-        this.addObjects();
+        this.initObjects();
         this.addPlayer();
         this.addHud();
         this.addChrome();
 
-        // The level is over a runway after the last obstacle.
-        this._length = 0;
-        for (var i = 0; i < PLAY_LAYOUT.level.length; i++)
-            this._length = Math.max(this._length, PLAY_LAYOUT.level[i].x);
-        this._length += PLAY_LAYOUT.endPad;
-
-        // One-by-one touches: the back arrow's cc.Menu keeps priority -128 and
-        // is served before the layer, so clicking it does not also jump.
         this.setTouchMode(cc.TOUCH_ONE_BY_ONE);
+        this.setTouchPriority(1);
         this.setTouchEnabled(true);
 
-        this.scheduleUpdate();
-        this.resetRun();
+        if (!this._level) {
+            this.showMissing();
+            return true;
+        }
 
+        if (this._level.song) GD.Audio.music(this._level.song);
+        this.scheduleUpdate();
+        this.startRun();
         return true;
     },
 
+    // The save record this level writes to: main levels by id, imports by name.
+    saveKey: function () {
+        if (!this._entry) return "official:0";
+        if (this._entry.local !== undefined) return "local:" + this._entry.name;
+        return "official:" + (this._level ? this._level.id : this._entry.id);
+    },
+
     addSpriteFrames: function () {
-        var cache = cc.SpriteFrameCache.getInstance();
-        if (!cache.getSpriteFrame("spike_01_001.png"))
-            cache.addSpriteFrames("res/gd/GJ_GameSheet.plist");
-        if (!cache.getSpriteFrame("player_01_001.png"))
-            cache.addSpriteFrames("res/gd/GJ_GameSheetIcons.plist");
-        if (!cache.getSpriteFrame("GJ_arrow_03_001.png"))
-            cache.addSpriteFrames("res/gd/GJ_GameSheet03.plist");
+        GD.loadSheets();
     },
 
     // Blue gradient with the tiled menu art scrolling behind the level.
@@ -1967,7 +2375,7 @@ var PlayLayer = cc.Layer.extend({
 
         this._backdrop = [];
         for (var i = 0; i < 2; i++) {
-            var bg = cc.Sprite.create("res/gd/game_bg_01_001.png");
+            var bg = GD.sprite("game_bg_01_001.png");
             bg.setScale(1.875);                          // 512px sheet -> 960px
             bg.setColor(cc.c3b(c.backdrop[0], c.backdrop[1], c.backdrop[2]));
             bg.setPosition(size.width / 2 + i * size.width, PLAY_LAYOUT.groundY + 225);
@@ -1976,78 +2384,498 @@ var PlayLayer = cc.Layer.extend({
         }
     },
 
-    // Brown ground strip, its lit top edge and the stripes that make the
-    // scroll speed readable.
+    // Brown ground strip, its lit top edge and the stripes that make the speed
+    // readable. Everything moves with the camera (see scrollBackdrop).
     addGround: function () {
         var c = PLAY_LAYOUT.colors;
         var size = cc.Director.getInstance().getWinSize();
-        var h = PLAY_LAYOUT.groundY;
 
-        var ground = cc.LayerGradient.create(
+        this._ground = cc.LayerGradient.create(
             cc.c4b(c.groundTop[0], c.groundTop[1], c.groundTop[2], 255),
             cc.c4b(c.groundBottom[0], c.groundBottom[1], c.groundBottom[2], 255),
             cc.p(0, -1));
-        ground.setContentSize(size.width, h);
-        ground.setPosition(0, 0);
-        this.addChild(ground, 2);
+        this._ground.setContentSize(size.width, PLAY_LAYOUT.groundDepth);
+        this.addChild(this._ground, 2);
 
-        this.addQuad(0, h - 4, size.width, 4, c.groundLine, this, 3);
+        this._groundLine = this.addQuad(0, 0, size.width, 4, c.groundLine, this, 3);
 
         this._stripes = [];
-        for (var i = 0; i < 18; i++) {
-            var stripe = this.addQuad(0, 0, 10, h - 4, c.groundStripe, this, 3);
-            this._stripes.push(stripe);
-        }
+        for (var i = 0; i < 18; i++)
+            this._stripes.push(this.addQuad(0, 0, 10, PLAY_LAYOUT.groundDepth - 4,
+                                            c.groundStripe, this, 3));
     },
 
-    // One sprite per level object; positions are refreshed from `_scroll`.
-    addObjects: function () {
-        var L = PLAY_LAYOUT;
-        var orbTint = L.colors.orbTint;
-        this._objects = [];
+    /* Object sprites are pooled: only what is on screen exists. `obj.sprite` is
+     * the live sprite of an object (or null), which makes the window scan cheap. */
+    initObjects: function () {
+        this._live = [];
+        this._pool = [];
+        this._fillPool = [];
 
-        for (var i = 0; i < L.level.length; i++) {
-            var spec = L.level[i];
-            var sprite;
-
-            if (spec.kind === "spike") {
-                sprite = cc.Sprite.createWithSpriteFrameName(L.frames.spike);
-                sprite.setAnchorPoint(cc.p(0.5, 0));
-                sprite.setScale(L.scale);
-            } else if (spec.kind === "block") {
-                sprite = cc.Sprite.createWithSpriteFrameName(L.frames.block);
-                sprite.setAnchorPoint(cc.p(0.5, 0));
-                sprite.setScaleX(L.scale);
-                sprite.setScaleY(L.scale * (spec.h || 1));  // 30px art, h cells tall
-            } else {
-                sprite = cc.Sprite.createWithSpriteFrameName(L.frames.orb);
-                sprite.setScale(L.scale);
-                sprite.setColor(cc.c3b(orbTint[0], orbTint[1], orbTint[2]));
-            }
-
-            this.addChild(sprite, spec.kind === "orb" ? 5 : 4);
-            this._objects.push({ spec: spec, sprite: sprite, taken: false });
-        }
+        for (var i = 0; i < this._objects.length; i++) this._objects[i].sprite = null;
     },
 
     addPlayer: function () {
-        var L = PLAY_LAYOUT;
-        var tint = L.colors.cubeTint;
+        var color = GD.Save.get("profile.color1", PLAY_LAYOUT.colors.cubeTint);
 
-        this._cube = cc.Sprite.createWithSpriteFrameName(L.frames.player);
-        this._cube.setScale(L.scale);
-        this._cube.setColor(cc.c3b(tint[0], tint[1], tint[2]));
-        this.addChild(this._cube, 6);
+        this._player = cc.Sprite.createWithSpriteFrameName("player_01_001.png");
+        this._player.setScale(PLAY_LAYOUT.scale);
+        this._player.setColor(cc.c3b(color[0], color[1], color[2]));
+        this.addChild(this._player, 9);
+
+        this.setMode("cube");
         this.placePlayer();
     },
 
-    // The sprite is centre-anchored, so its y is the cube's middle.
-    placePlayer: function () {
-        var L = PLAY_LAYOUT;
-        this._cube.setPosition(L.playerX, L.groundY + this._y + L.playerSize / 2);
+    /* Switches to a game mode: the icon changes, the physics read the mode table. */
+    setMode: function (mode) {
+        var spec = PLAY_LAYOUT.modes[mode] || PLAY_LAYOUT.modes.cube;
+        var number = GD.Save.get("profile." + (PLAYER_PROFILE_KEY[spec.pool] || "cube"), 1);
+
+        this._mode = PLAY_LAYOUT.modes[mode] ? mode : "cube";
+        if (!this._player) return;
+
+        var frame = this.playerFrame(spec, number);
+        if (frame) this._player.setDisplayFrame(frame);
     },
 
-    // Progress bar, orb counter and the "Attempt n" flash.
+    /* The player's own icon for a mode: the loose set once it is decoded, the
+     * sheet frame until then (the atlas is only a few KB and arrives right
+     * after the level starts). */
+    playerFrame: function (spec, number) {
+        if (GD.iconFrameLoaded(spec.pool, number)) return GD.iconSpriteFrame(spec.pool, number);
+
+        GD.preloadIcons(spec.pool, [number], function () { this.setMode(this._mode); }, this);
+
+        var name = spec.frame.replace("%n", number < 10 ? "0" + number : "" + number);
+        return cc.SpriteFrameCache.getInstance().getSpriteFrame(name);
+    },
+
+    /* ------------------------------------------------------------ game loop */
+    update: function (dt) {
+        if (dt > 0.05) dt = 0.05;       // keep the physics sane after a stall
+
+        if (!this._level) return;
+
+        if (this._finished) {
+            this.scrollBackdrop();
+            return;
+        }
+
+        if (this._dead) {
+            this._respawn -= dt;
+            if (this._respawn <= 0) this.startRun();
+            return;
+        }
+
+        this.step(dt);
+        this.layoutSprites();
+        this.scrollBackdrop();
+        this.updateHud();
+    },
+
+    /* One physics step: orbs first (a tap on an orb is not also a jump), then
+     * the mode's gravity/input, then movement and collision. */
+    step: function (dt) {
+        var L = PLAY_LAYOUT;
+        var spec = L.modes[this._mode] || L.modes.cube;
+        var speed = L.speeds[this._speedIndex] || L.speeds[L.speedIndex];
+
+        this._dt = dt;
+        if (this._tap) this.useOrb();
+
+        this._x += speed * dt;
+
+        if (spec.wave) {
+            // The wave steers: holding points the nose up, letting go points down.
+            this._vy = (this._hold ? 1 : -1) * speed * spec.wave;
+        } else if (spec.thrust) {
+            this._vy += (this._hold ? spec.thrust : -spec.gravity) * dt;
+        } else {
+            this._vy -= spec.gravity * dt;
+        }
+
+        if (this._tap) this.onTap(spec);
+        this._tap = false;
+
+        var cap = spec.cap || L.maxFall;
+        if (this._vy > cap) this._vy = cap;
+        if (this._vy < -cap) this._vy = -cap;
+
+        this._prevY = this._y;
+        this._y += this._vy * dt;
+
+        this.collide();
+        this.placePlayer();
+
+        if (!this._dead && this._x >= this._level.length) this.completeLevel();
+    },
+
+    /* A tap without an orb under it: jump (cube, robot), flip (ball, spider) or
+     * hop in mid-air (UFO). Ship, wave, swing and jetpack thrust instead. */
+    onTap: function (spec) {
+        var L = PLAY_LAYOUT;
+
+        if (spec.flip) {
+            this.flipGravity();
+            if (spec.snap) this._y = Math.round(this._y / L.unit) * L.unit;
+            return;
+        }
+        if (spec.hop) {
+            this._vy = spec.hop;
+            this._onGround = false;
+            PLAYER_STATS.add("totalJumps");
+            return;
+        }
+        if (spec.jump && this._onGround) {
+            this._vy = spec.jump;
+            this._y += 1;                  // leave the ground on this very frame
+            this._onGround = false;
+            PLAYER_STATS.add("totalJumps");
+        }
+    },
+
+    flipGravity: function () {
+        this._gravity = -this._gravity;
+        this._vy = -this._vy * 0.5;
+        this._onGround = false;
+    },
+
+    placePlayer: function () {
+        var L = PLAY_LAYOUT;
+        this._player.setPosition(L.playerX,
+            L.groundY + (this.worldY(this._y) - this._cameraY) * L.scale + L.playerSize);
+        this._player.setFlippedY(this._gravity === -1);
+    },
+
+    /* Player space -> world units above the ground. */
+    worldY: function (y) {
+        var L = PLAY_LAYOUT;
+        return this._gravity === 1 ? y : L.playHeight - y - L.playerSize;
+    },
+
+    /* The objects near the player, as a [from, to) index range of the sorted
+     * list. Two cells of margin covers every object this build draws. */
+    nearObjects: function (x, pad) {
+        return { from: Math.max(0, this.indexOf(x - pad) - 1),
+                 to: Math.min(this._objects.length, this.indexOf(x + pad) + 1) };
+    },
+
+    indexOf: function (x) {
+        var lo = 0, hi = this._objects.length;
+        while (lo < hi) {
+            var mid = (lo + hi) >> 1;
+            if (this._objects[mid].x < x) lo = mid + 1; else hi = mid;
+        }
+        return lo;
+    },
+
+    /* An object's axis aligned box in player space. Rotation and scale are
+     * ignored: every tile this build draws is one cell. */
+    boxOf: function (obj) {
+        var half = PLAY_LAYOUT.unit / 2;
+        var bottom = obj.y - half, top = obj.y + half;
+
+        if (this._gravity === 1)
+            return { left: obj.x - half, right: obj.x + half, bottom: bottom, top: top };
+
+        var height = PLAY_LAYOUT.playHeight;
+        return { left: obj.x - half, right: obj.x + half,
+                 bottom: height - top, top: height - bottom };
+    },
+
+    /* Collision for this frame.
+     *
+     * Every solid the player's box overlaps is either a floor (its top is at or
+     * below the feet, so the player stands on it), a ceiling (its bottom is at or
+     * above the head) or a wall — and GD kills on walls. The `step` tolerance is
+     * what makes the 2.x slopes (which this build draws as tiles) walkable
+     * instead of fatal.
+     */
+    collide: function () {
+        var L = PLAY_LAYOUT;
+        var half = L.hitHalf, size = L.playerSize, step = 7;
+        var player = { left: this._x - half, right: this._x + half,
+                       bottom: this._y, top: this._y + size };
+        var range = this.nearObjects(this._x, L.unit * 2);
+        var floor = 0, ceiling = L.playHeight;
+        var landed = false;
+        var i, obj, box;
+
+        for (i = range.from; i < range.to; i++) {
+            obj = this._objects[i];
+            if (obj.def.solid) {
+                box = this.boxOf(obj);
+                if (player.right <= box.left || player.left >= box.right) continue;
+                if (box.top <= player.bottom + step) {
+                    if (box.top > floor) floor = box.top;
+                } else if (box.bottom >= player.top - step) {
+                    if (box.bottom < ceiling) ceiling = box.bottom;
+                } else {
+                    this.crash();                    // ran into the side
+                    return;
+                }
+                continue;
+            }
+
+            if (obj.def.hazard) {
+                box = this.boxOf(obj);
+                if (this.hits(box, player, L.hazardHalf)) { this.crash(); return; }
+                continue;
+            }
+
+            if (obj.def.touch && !obj.taken) {
+                box = this.boxOf(obj);
+                if (!this.hits(box, player, 6)) continue;
+
+                if (obj.def.kind === "pad") this.usePad(obj);
+                else if (obj.def.kind === "coin") this.takeCoin(obj);
+                else if (obj.def.kind === "portal") this.usePortal(obj);
+            }
+        }
+
+        // Stand on the floor, stop at the ceiling. `landed` feeds the spin.
+        if (this._y <= floor) {
+            this._y = floor;
+            this._vy = 0;
+            this._onGround = true;
+            landed = true;
+            this.land();
+        } else if (this._y >= ceiling - size) {
+            this._y = ceiling - size;
+            if (this._vy > 0) this._vy = 0;
+            this._onGround = false;
+        } else {
+            this._onGround = false;
+        }
+
+        if (!landed && L.modes[this._mode] && L.modes[this._mode].spin)
+            this._player.setRotation(this._player.getRotation() +
+                L.modes[this._mode].spin * this._gravity * (this._dt || 1 / 60));
+    },
+
+    /* Do two boxes overlap, shrunk by `pad` on the object's side? */
+    hits: function (box, player, pad) {
+        return player.right > box.left + pad && player.left < box.right - pad &&
+               player.top > box.bottom + pad && player.bottom < box.top - pad;
+    },
+
+    // GD lands the cube flat, on a 90 degree step.
+    land: function () {
+        var rot = this._player.getRotation();
+        this._player.setRotation((Math.round(rot / 90) * 90) % 360);
+    },
+
+    /* Touch objects. An orb only fires on a tap while the player is inside it,
+     * a pad fires on contact, a portal once on the way through. */
+    useOrb: function () {
+        var L = PLAY_LAYOUT;
+        var range = this.nearObjects(this._x, L.unit + 10);
+        var size = L.playerSize;
+
+        for (var i = range.from; i < range.to; i++) {
+            var obj = this._objects[i];
+            if (obj.def.kind !== "orb" || obj.taken) continue;
+
+            var box = this.boxOf(obj);
+            var player = { left: this._x - L.hitHalf, right: this._x + L.hitHalf,
+                           bottom: this._y, top: this._y + size };
+            if (!this.hits(box, player, 8)) continue;
+
+            var spec = L.orbs[obj.def.value] || L.orbs.yellow;
+            if (spec.flip) this.flipGravity();
+            if (spec.jump) {
+                this._vy = spec.jump;
+                this._onGround = false;
+            }
+            obj.taken = true;
+            if (obj.sprite) obj.sprite.setVisible(false);
+            PLAYER_STATS.add("totalJumps");
+            PLAYER_STATS.add("totalOrbs");
+            this._tap = false;
+            return;
+        }
+    },
+
+    usePad: function (obj) {
+        var spec = PLAY_LAYOUT.pads[obj.def.value] || PLAY_LAYOUT.pads.yellow;
+
+        obj.taken = true;
+        if (spec.flip) this.flipGravity();
+        this._vy = spec.jump;
+        this._onGround = false;
+    },
+
+    usePortal: function (obj) {
+        var mode = obj.def.value;
+
+        obj.taken = true;
+        if (mode === "gravity") {
+            this.flipGravity();
+            return;
+        }
+        // A mode portal is a toggle: it enters that mode, and the pair's other
+        // half takes the player back to the cube.
+        this.setMode(this._mode === mode ? "cube" : mode);
+        this._vy = Math.max(this._vy, 0);
+    },
+
+    takeCoin: function (obj) {
+        var index = Math.max(0, Math.min(2, (obj.coin || 1) - 1));
+
+        obj.taken = true;
+        if (obj.sprite) obj.sprite.setVisible(false);
+        this._coins[index] = true;
+        PLAYER_STATS.add("collectedSecretCoins");
+        this.refreshCoinHud();
+    },
+
+    /* -------------------------------------------------------------- drawing */
+    /* Lays the world out for the current camera: the level scrolls with the
+     * player, and the camera also follows vertically once the player is high
+     * enough (ship parts), like GD's own camera. Only the objects inside the
+     * window have a sprite. */
+    layoutSprites: function () {
+        var L = PLAY_LAYOUT;
+        var camX = this._x;
+        var from = camX - 160, to = camX + 420;
+        var i, entry, obj;
+
+        var target = GD.clamp(this.worldY(this._y) - 150, 0,
+                              L.playHeight - L.viewCells * L.unit);
+        this._cameraY += (target - this._cameraY) * 0.15;
+
+        for (i = this._live.length - 1; i >= 0; i--) {
+            entry = this._live[i];
+            if (entry.obj.x < from - L.unit || entry.obj.x > to + L.unit) {
+                this.release(entry);
+                this._live.splice(i, 1);
+            }
+        }
+
+        for (i = this.indexOf(from); i < this._objects.length && this._objects[i].x <= to; i++) {
+            obj = this._objects[i];
+            if (obj.sprite) continue;
+            this.acquire(obj);
+        }
+
+        for (i = 0; i < this._live.length; i++) {
+            entry = this._live[i];
+            var x = L.playerX + (entry.obj.x - camX) * L.scale;
+            var y = L.groundY + (entry.obj.y - this._cameraY) * L.scale;
+
+            entry.sprite.setPosition(x, y);
+            if (entry.fill) entry.fill.setPosition(x, y);
+        }
+    },
+
+    /* Takes a sprite from the pool (or builds one) and points it at `obj`. A
+     * solid also gets a colour fill sprite underneath its outline. */
+    acquire: function (obj) {
+        var L = PLAY_LAYOUT;
+        var cache = cc.SpriteFrameCache.getInstance();
+        var frame = cache.getSpriteFrame(obj.def.frame) || cache.getSpriteFrame("blockOutline_01_001.png");
+        if (!frame) return;
+
+        var sprite = this._pool.pop();
+        if (!sprite) sprite = cc.Sprite.createWithSpriteFrame(frame);
+        if (!sprite) return;                    // frame's texture is still decoding
+
+        var entry = { obj: obj, sprite: sprite, fill: null };
+
+        if (obj.def.solid) {
+            var fillFrame = cache.getSpriteFrame(L.blockFill);
+            var fill = fillFrame ? this._fillPool.pop() : null;
+            if (fillFrame && !fill) fill = cc.Sprite.createWithSpriteFrame(fillFrame);
+            if (fill) {
+                fill.setDisplayFrame(fillFrame);
+                fill.setScale(L.scale * L.blockFillScale);
+                fill.setAnchorPoint(cc.p(0.5, 0.5));
+                fill.setRotation(obj.rot || 0);
+                fill.setFlippedX(!!obj.flipX);
+                fill.setFlippedY(!!obj.flipY);
+                fill.setColor(this.shade(this.levelColour(), 0.9));
+                fill.setOpacity(255);
+                fill.setPosition(-200, -200);
+                this.addChild(fill, this.zFor(obj) - 1);
+                entry.fill = fill;
+            }
+        }
+
+        sprite.stopAllActions();
+        sprite.setDisplayFrame(frame);
+        sprite.setScale(L.scale);
+        sprite.setAnchorPoint(cc.p(0.5, 0.5));
+        sprite.setRotation(obj.rot || 0);
+        sprite.setFlippedX(!!obj.flipX);
+        sprite.setFlippedY(!!obj.flipY);
+        sprite.setColor(this.tintFor(obj));
+        sprite.setOpacity(255);
+        sprite.setVisible(!obj.taken);
+        sprite.setPosition(-200, -200);         // placed by layoutSprites()
+
+        this.addChild(sprite, this.zFor(obj));
+        obj.sprite = sprite;
+        this._live.push(entry);
+    },
+
+    release: function (entry) {
+        entry.obj.sprite = null;
+        entry.sprite.removeFromParent();
+        this._pool.push(entry.sprite);
+        if (entry.fill) {
+            entry.fill.removeFromParent();
+            this._fillPool.push(entry.fill);
+        }
+    },
+
+    levelColour: function () {
+        return (this._level && this._level.colour) || [255, 255, 255];
+    },
+
+    shade: function (colour, factor) {
+        return cc.c3b(Math.round(colour[0] * factor), Math.round(colour[1] * factor),
+                      Math.round(colour[2] * factor));
+    },
+
+    /* Blocks and spikes take the level's own colour channel, like GD: the block
+     * outline is the dark shade, the spike keeps the full colour. */
+    tintFor: function (obj) {
+        if (obj.def.solid) return this.shade(this.levelColour(), 0.45);
+        if (obj.def.hazard) return this.shade(this.levelColour(), 1);
+        return cc.c3b(255, 255, 255);
+    },
+
+    zFor: function (obj) {
+        if (obj.def.kind === "coin") return 7;
+        if (obj.def.touch) return 6;            // orbs, pads and portals sit in front
+        return 4;
+    },
+
+    // The tiled backdrop drifts at a quarter of the level speed; the ground and
+    // its stripes move with the camera.
+    scrollBackdrop: function () {
+        var L = PLAY_LAYOUT;
+        var size = cc.Director.getInstance().getWinSize();
+        var shiftX = (this._x * L.scale * 0.25) % size.width;
+        var groundY = L.groundY - this._cameraY * L.scale;
+        var i;
+
+        for (i = 0; i < this._backdrop.length; i++)
+            this._backdrop[i].setPosition(size.width / 2 + i * size.width - shiftX,
+                groundY + 225);
+
+        this._ground.setPosition(0, groundY - L.groundDepth);
+        this._groundLine.setPosition(0, groundY - 4);
+
+        var pitch = 80;
+        var scroll = (this._x * L.scale) % pitch;
+        for (i = 0; i < this._stripes.length; i++)
+            this._stripes[i].setPosition(i * pitch - scroll, groundY - L.groundDepth);
+    },
+
+    /* ------------------------------------------------------------------ hud */
+    // Progress bar, the level name, the three coin slots and the attempt flash.
     addHud: function () {
         var L = PLAY_LAYOUT;
         var h = L.hud;
@@ -2060,17 +2888,45 @@ var PlayLayer = cc.Layer.extend({
         this._percent = this.makeLabel("0%", h.percent.scale);
         this._percent.setPosition(h.percent.x, h.percent.y);
 
-        var orbIcon = cc.Sprite.createWithSpriteFrameName(h.orbs.frame);
-        orbIcon.setScale(h.orbs.scale);
-        orbIcon.setPosition(h.orbs.x, h.orbs.y);
-        this.addChild(orbIcon, 8);
+        if (this._level) {
+            this._title = this.makeLabel("" + this._level.name, h.level.scale);
+            this._title.setPosition(h.level.x, h.level.y);
+        }
 
-        this._orbLabel = this.makeLabel("0", h.orbs.numberScale);
-        this._orbLabel.setAnchorPoint(cc.p(0, 0.5));
-        this._orbLabel.setPosition(h.orbs.numberX, h.orbs.y);
+        this._coinIcons = [];
+        for (var i = 0; i < 3; i++) {
+            var icon = GD.frameSprite(h.coins.frame);
+            if (!icon) continue;                    // sheet still decoding
+            icon.setScale(h.coins.scale);
+            icon.setPosition(h.coins.x + i * h.coins.pitch, h.coins.y);
+            icon.setOpacity(90);
+            this.addChild(icon, 8);
+            this._coinIcons.push(icon);
+        }
 
         this._attemptLabel = this.makeLabel("Attempt 1", h.attempt.scale);
         this._attemptLabel.setPosition(h.attempt.x, h.attempt.y);
+    },
+
+    refreshCoinHud: function () {
+        for (var i = 0; i < this._coinIcons.length; i++)
+            this._coinIcons[i].setOpacity(this._coins[i] ? 255 : 90);
+    },
+
+    updateHud: function () {
+        var h = PLAY_LAYOUT.hud;
+        var percent = this.percent();
+
+        if (!this._fill || !this._percent) return;
+
+        this._fill.setContentSize(Math.max(1, Math.round(h.track.width * percent / 100)),
+                                  h.track.height);
+        this._percent.setString(Math.max(0, Math.min(100, Math.round(percent))) + "%");
+    },
+
+    percent: function () {
+        if (!this._level || !this._level.length) return 0;
+        return GD.clamp(this._x * 100 / this._level.length, 0, 100);
     },
 
     // Pink back arrow, exactly like the other screens.
@@ -2090,10 +2946,168 @@ var PlayLayer = cc.Layer.extend({
     },
 
     onBack: function () {
-        cc.Director.getInstance().replaceScene(new MyScene());
+        GD.Audio.stopMusic();
+        cc.Director.getInstance().replaceScene(new LevelSelectScene());
     },
 
-    // --------------------------------------------------------------- helpers
+    // Opened without level data (a fresh checkout, or a manifest that never
+    // loaded): say so instead of running an empty world.
+    showMissing: function () {
+        var label = this.makeLabel("No level data - run tools/level-import.js", 0.62, this, 20);
+        label.setPosition(GD.W / 2, GD.H / 2);
+    },
+
+    /* ------------------------------------------------------------- one run */
+    startRun: function () {
+        var L = PLAY_LAYOUT;
+        var i;
+
+        this._x = 0;
+        this._y = 0;
+        this._vy = 0;
+        this._prevY = 0;
+        this._gravity = 1;
+        this._onGround = true;
+        this._hold = false;
+        this._tap = false;
+        this._dead = false;
+        this._finished = false;
+        this._cameraY = 0;
+        this._speedIndex = L.speedIndex;
+        this._coins = [false, false, false];
+
+        for (i = 0; i < this._objects.length; i++) this._objects[i].taken = false;
+
+        // Recycled sprites still show the last run's pickups: drop them all and
+        // let the window scan rebuild what is on screen.
+        for (i = this._live.length - 1; i >= 0; i--) this.release(this._live[i]);
+        this._live = [];
+
+        this.setMode("cube");
+        this._player.stopAllActions();
+        this._player.setOpacity(255);
+        this._player.setRotation(0);
+        this._player.setScale(L.scale);
+
+        this.placePlayer();
+        this.layoutSprites();
+        this.scrollBackdrop();
+        this.refreshCoinHud();
+        this.updateHud();
+
+        // Every restart is an attempt, exactly like GD counts them.
+        this.showAttempt(PLAYER_STATS.add("totalAttempts"));
+    },
+
+    showAttempt: function (attempt) {
+        var label = this._attemptLabel;
+        if (!label) return;
+
+        label.stopAllActions();
+        label.setString("Attempt " + attempt);
+        label.setOpacity(255);
+        label.runAction(cc.Sequence.create(
+            cc.DelayTime.create(1.2), cc.FadeOut.create(0.5)));
+    },
+
+    crash: function () {
+        if (this._dead || this._finished) return;
+
+        this._dead = true;
+        this._respawn = PLAY_LAYOUT.respawnDelay;
+        this.saveBest();
+
+        // GD blows the cube up; a fast shrink-fade reads the same way.
+        GD.Audio.sfx("explode");
+        this._player.stopAllActions();
+        this._player.runAction(cc.Spawn.create(
+            cc.ScaleTo.create(0.25, PLAY_LAYOUT.scale * 0.2),
+            cc.FadeOut.create(0.25)));
+    },
+
+    /* 100%: the run is over, the record goes into the save file and GD's own
+     * end banner comes up. `onTouchBegan` leaves for the level select. */
+    completeLevel: function () {
+        var L = PLAY_LAYOUT;
+        var h = L.hud;
+        var size = cc.Director.getInstance().getWinSize();
+        var coins = 0;
+        var i;
+
+        this._finished = true;
+        this._hold = false;
+        this._tap = false;
+
+        this._player.stopAllActions();
+        this._player.setOpacity(255);
+        this._player.setScale(L.scale);
+        this._player.setRotation(0);
+        this.updateHud();
+
+        var result = GD.Save.completeLevel(this._key, 100, {
+            coins: this._coins,
+            stars: this._level.stars || 0
+        });
+
+        // The Stats table has its own counters next to the per level save, so a
+        // first completion is mirrored there too.
+        if (result.firstCompletion) {
+            PLAYER_STATS.add("completedLevels");
+            if (this._level.stars) PLAYER_STATS.add("collectedStars", this._level.stars);
+        }
+
+        for (i = 0; i < 3; i++) if (this._coins[i]) coins++;
+
+        GD.Audio.sfx("endStart");
+
+        var veil = this.addQuad(0, 0, size.width, size.height, L.colors.veil, this, 19);
+        veil.setOpacity(0);
+        veil.runAction(cc.FadeTo.create(0.35, L.colors.veil[3]));
+
+        var banner = this.makeLabel("LEVEL COMPLETE!", h.complete.scale, this, 20);
+        banner.setPosition(h.complete.x, h.complete.y);
+
+        var line = "100%";
+        if (this._level.stars)
+            line += "   " + this._level.stars + (this._level.stars === 1 ? " star" : " stars");
+        line += "   " + coins + "/3 coins";
+
+        var info = this.makeLabel(line, h.info.scale, this, 20);
+        info.setPosition(h.info.x, h.info.y);
+
+        var hint = this.makeLabel("Tap to continue", h.hint.scale, this, 20);
+        hint.setPosition(h.hint.x, h.hint.y);
+    },
+
+    // Stores a new best percentage for the level (the level select shows it) and
+    // counts the attempt, the way GD's own level record does.
+    saveBest: function () {
+        var percent = Math.floor(this.percent());
+        if (percent < 1) return;
+
+        GD.Save.completeLevel(this._key, percent);
+    },
+
+    /* ---------------------------------------------------------------- input */
+    onTouchBegan: function () {
+        if (this._finished) {
+            this.onBack();
+            return true;
+        }
+        this._hold = true;
+        this._tap = true;
+        return true;
+    },
+
+    onTouchEnded: function () {
+        this._hold = false;
+    },
+
+    onTouchCancelled: function () {
+        this._hold = false;
+    },
+
+    /* -------------------------------------------------------------- helpers */
     makeLabel: function (text, scale, parent, z) {
         var label = cc.LabelBMFont.create("" + text, PLAY_LAYOUT.font);
         label.setScale(scale);
@@ -2108,258 +3122,26 @@ var PlayLayer = cc.Layer.extend({
         quad.setPosition(x, y);
         (parent || this).addChild(quad, z || 0);
         return quad;
-    },
-
-    // ------------------------------------------------------------ game loop
-    update: function (dt) {
-        if (dt > 0.05) dt = 0.05;       // keep the physics sane after a stall
-
-        if (this._finished) {
-            this.scrollBackdrop();
-            return;
-        }
-
-        if (this._dead) {
-            this._respawn -= dt;
-            if (this._respawn <= 0) this.resetRun();
-            return;
-        }
-
-        this._scroll += PLAY_LAYOUT.speed * dt;
-
-        this.physics(dt);
-        this.layoutObjects();
-        this.collectObjects();
-        this.checkCrash();
-        this.scrollBackdrop();
-        this.updateHud();
-
-        if (this._scroll >= this._length) this.completeLevel();
-    },
-
-    // Gravity, landing on the ground or on a block, and the airborne spin.
-    physics: function (dt) {
-        var L = PLAY_LAYOUT;
-        var feetBefore = this._y;
-
-        this._vy += L.gravity * dt;
-        this._y += this._vy * dt;
-
-        // The highest surface under the cube: the ground, or a block's top.
-        var support = 0;
-        for (var i = 0; i < this._objects.length; i++) {
-            var spec = this._objects[i].spec;
-            if (spec.kind !== "block" || !this.overlapsColumn(spec)) continue;
-            var top = (spec.h || 1) * L.cell;
-            if (top <= feetBefore + 6 && top > support) support = top;
-        }
-
-        if (this._y <= support) {
-            if (!this._onGround) this.land();
-            this._y = support;
-            this._vy = 0;
-            this._onGround = true;
-        } else {
-            this._onGround = false;
-            this._cube.setRotation(this._cube.getRotation() + L.spin * dt);
-        }
-
-        this.placePlayer();
-    },
-
-    // GD lands the cube flat, on a 90 degree step.
-    land: function () {
-        this._cube.setRotation((Math.round(this._cube.getRotation() / 90) * 90) % 360);
-    },
-
-    // Does the cube's hitbox share screen x with this object?
-    overlapsColumn: function (spec) {
-        var L = PLAY_LAYOUT;
-        var cx = L.playerX + (spec.x - this._scroll);
-        return cx + L.cell / 2 > L.playerX - L.hitHalfWidth &&
-               cx - L.cell / 2 < L.playerX + L.hitHalfWidth;
-    },
-
-    layoutObjects: function () {
-        var L = PLAY_LAYOUT;
-        var bob = Math.sin(this._scroll / 60) * 6;
-
-        for (var i = 0; i < this._objects.length; i++) {
-            var o = this._objects[i];
-            var x = L.playerX + (o.spec.x - this._scroll);
-            var onScreen = x > -140 && x < 1100;
-
-            o.sprite.setVisible(onScreen && !o.taken);
-            if (!onScreen) continue;
-            if (o.spec.kind === "orb")
-                o.sprite.setPosition(x, L.groundY + o.spec.y + bob);
-            else
-                o.sprite.setPosition(x, L.groundY);
-        }
-    },
-
-    // Rings are picked up by the cube's body, wherever it is in its arc.
-    collectObjects: function () {
-        var L = PLAY_LAYOUT;
-        var centreY = L.groundY + this._y + L.playerSize / 2;
-
-        for (var i = 0; i < this._objects.length; i++) {
-            var o = this._objects[i];
-            if (o.spec.kind !== "orb" || o.taken) continue;
-
-            var dx = o.sprite.getPositionX() - L.playerX;
-            var dy = o.sprite.getPositionY() - centreY;
-            if (Math.abs(dx) > L.orbHitRadius || Math.abs(dy) > L.orbHitRadius) continue;
-
-            o.taken = true;
-            o.sprite.setVisible(false);
-            this._runOrbs++;
-            PLAYER_STATS.add("totalOrbs", L.orbsPerOrb);
-        }
-    },
-
-    checkCrash: function () {
-        var L = PLAY_LAYOUT;
-
-        for (var i = 0; i < this._objects.length; i++) {
-            var spec = this._objects[i].spec;
-            if (spec.kind === "orb" || !this.overlapsColumn(spec)) continue;
-
-            if (spec.kind === "spike") {
-                // The tip is thin and the base is a wall: 45px of clearance.
-                if (this._y < L.cell * 0.75) { this.crash(); return; }
-            } else if (this._y < (spec.h || 1) * L.cell - 6) {
-                this.crash();                 // ran into the side of a block
-                return;
-            }
-        }
-    },
-
-    scrollBackdrop: function () {
-        var size = cc.Director.getInstance().getWinSize();
-        var shiftX = (this._scroll * 0.25) % size.width;
-        var shiftY = this._scroll % 80;
-        var i;
-
-        for (i = 0; i < this._backdrop.length; i++)
-            this._backdrop[i].setPosition(size.width / 2 + i * size.width - shiftX,
-                PLAY_LAYOUT.groundY + 225);
-
-        for (i = 0; i < this._stripes.length; i++)
-            this._stripes[i].setPosition(i * 80 - shiftY, 0);
-    },
-
-    updateHud: function () {
-        var L = PLAY_LAYOUT;
-        var percent = this._length > 0 ? Math.min(1, this._scroll / this._length) : 0;
-
-        this._fill.setContentSize(
-            Math.max(1, Math.round(L.hud.track.width * percent)), L.hud.track.height);
-        this._percent.setString(Math.round(percent * 100) + "%");
-        this._orbLabel.setString("" + this._runOrbs);
-    },
-
-    // --------------------------------------------------------------- one run
-    resetRun: function () {
-        var L = PLAY_LAYOUT;
-
-        this._scroll = 0;
-        this._y = 0;
-        this._vy = 0;
-        this._onGround = true;
-        this._dead = false;
-        this._runOrbs = 0;
-
-        for (var i = 0; i < this._objects.length; i++)
-            this._objects[i].taken = false;
-
-        this._cube.stopAllActions();
-        this._cube.setOpacity(255);
-        this._cube.setScale(L.scale);
-        this._cube.setRotation(0);
-
-        this.placePlayer();
-        this.layoutObjects();
-        this.scrollBackdrop();
-        this.updateHud();
-
-        // Every restart is an attempt, exactly like GD counts them.
-        this.showAttempt(PLAYER_STATS.add("totalAttempts"));
-    },
-
-    showAttempt: function (attempt) {
-        var label = this._attemptLabel;
-        label.stopAllActions();
-        label.setString("Attempt " + attempt);
-        label.setOpacity(255);
-        label.runAction(cc.Sequence.create(
-            cc.DelayTime.create(1.2), cc.FadeOut.create(0.5)));
-    },
-
-    crash: function () {
-        if (this._dead || this._finished) return;
-        this._dead = true;
-        this._respawn = PLAY_LAYOUT.respawnDelay;
-
-        // GD blows the cube up; a fast shrink-fade reads the same way.
-        this._cube.stopAllActions();
-        this._cube.runAction(cc.Spawn.create(
-            cc.ScaleTo.create(0.25, PLAY_LAYOUT.scale * 0.15),
-            cc.FadeOut.create(0.25)));
-    },
-
-    completeLevel: function () {
-        if (this._finished) return;
-        this._finished = true;
-
-        // A finished run is worth a completed level and a star.
-        PLAYER_STATS.add("completedLevels");
-        PLAYER_STATS.add("collectedStars");
-
-        var size = cc.Director.getInstance().getWinSize();
-        var h = PLAY_LAYOUT.hud;
-
-        this.addQuad(0, 0, size.width, size.height, PLAY_LAYOUT.colors.veil, this, 20);
-
-        var title = this.makeLabel("Level Complete", h.complete.scale, this, 21);
-        title.setPosition(h.complete.x, h.complete.y);
-
-        var info = this.makeLabel("+ 1 star      orbs " + this._runOrbs, h.info.scale, this, 21);
-        info.setPosition(h.info.x, h.info.y);
-
-        var hint = this.makeLabel("Tap to go back to the menu", h.hint.scale, this, 21);
-        hint.setPosition(h.hint.x, h.hint.y);
-        hint.runAction(cc.RepeatForever.create(cc.Sequence.create(
-            cc.FadeTo.create(0.6, 120), cc.FadeTo.create(0.6, 255))));
-    },
-
-    // ------------------------------------------------------------------ input
-    onTouchBegan: function () {
-        if (this._finished) {
-            cc.Director.getInstance().replaceScene(new MyScene());
-            return true;
-        }
-        this.jump();
-        return true;
-    },
-
-    jump: function () {
-        if (this._dead || this._finished || !this._onGround) return;
-
-        this._vy = PLAY_LAYOUT.jumpSpeed;
-        this._y += 2;                  // leave the ground on this very frame
-        this._onGround = false;
-        this.placePlayer();
-        PLAYER_STATS.add("totalJumps");
     }
 });
 
+/* The play scene takes the level select's entry: { id } for a baked level,
+ * { local: n } for an imported one. */
 var PlayScene = cc.Scene.extend({
+    ctor: function (entry) {
+        this._super();
+        this._entry = entry || null;
+    },
     onEnter: function () {
         this._super();
         var layer = new PlayLayer();
         this.addChild(layer);
-        layer.init();
+        layer.init(this._entry);
     }
 });
+
+
+
+
+
 

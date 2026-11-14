@@ -13,6 +13,9 @@ var g_resources = [
     // Main in-game sheet: spikes, blocks and jump rings for the play layer.
     { type: "image", src: "res/gd/GJ_GameSheet.png" },
     { type: "plist", src: "res/gd/GJ_GameSheet.plist" },
+    // Portals, jump pads and secret coins — the play layer draws all three.
+    { type: "image", src: "res/gd/GJ_GameSheet02.png" },
+    { type: "plist", src: "res/gd/GJ_GameSheet02.plist" },
     // Font for the "Geometry Dash" logo.
     { type: "image", src: "res/gd/bigFont.png" },
     { src: "res/gd/bigFont.fnt" },

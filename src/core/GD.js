@@ -211,7 +211,9 @@ GD.label = function (text, opts) {
     var label = cc.LabelBMFont.create("" + (text === undefined || text === null ? "" : text),
                                       opts.font || GD.FONT.big);
     if (opts.scale !== undefined) label.setScale(opts.scale);
-    if (opts.color) label.setColor(opts.color);
+    // Colours come in as either a cc.c3b or a plain [r, g, b] triple.
+    if (opts.color) label.setColor(Array.isArray(opts.color)
+        ? cc.c3b(opts.color[0], opts.color[1], opts.color[2]) : opts.color);
     if (opts.width) {
         label.setWidth(opts.width);
         if (opts.align !== undefined) label.setAlignment(opts.align);

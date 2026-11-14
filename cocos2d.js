@@ -15,12 +15,13 @@
         appFiles: [
             // Shared core, loaded in dependency order: namespace/art helpers,
             // save file, audio, then the widget kit that builds on all three.
-            'src/core/GD.js?v=2',
+            'src/core/GD.js?v=3',
             'src/core/Save.js?v=1',
             'src/core/Audio.js?v=1',
+            'src/core/Levels.js?v=2',
             'src/core/UI.js?v=2',
-            'src/resource.js?v=25',
-            'src/MyApp.js?v=27',
+            'src/resource.js?v=27',
+            'src/MyApp.js?v=29',
             'src/dev/KitShowcase.js?v=1'
         ]
     };
