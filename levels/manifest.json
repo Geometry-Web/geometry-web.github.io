@@ -165,8 +165,8 @@
       "diff": 6,
       "song": "Clubstep",
       "file": "14-clubstep.json",
-      "objects": 4020,
-      "length": 26625,
+      "objects": 4073,
+      "length": 26655,
       "coins": 3
     },
     {
@@ -177,7 +177,7 @@
       "diff": 5,
       "song": "Electrodynamix",
       "file": "15-electrodynamix.json",
-      "objects": 4891,
+      "objects": 4901,
       "length": 32775,
       "coins": 3
     },
@@ -189,7 +189,7 @@
       "diff": 5,
       "song": "HexagonForce",
       "file": "16-hexagon-force.json",
-      "objects": 4493,
+      "objects": 4543,
       "length": 31005,
       "coins": 3
     },
@@ -201,7 +201,7 @@
       "diff": 5,
       "song": "BlastProcessing",
       "file": "17-blast-processing.json",
-      "objects": 4122,
+      "objects": 4125,
       "length": 30645,
       "coins": 3
     },
@@ -213,7 +213,7 @@
       "diff": 6,
       "song": "TheoryOfEverything2",
       "file": "18-theory-of-everything-2.json",
-      "objects": 5789,
+      "objects": 5790,
       "length": 28587.5,
       "coins": 3
     },
@@ -225,7 +225,7 @@
       "diff": 5,
       "song": "GeometricalDominator",
       "file": "19-geometrical-dominator.json",
-      "objects": 6378,
+      "objects": 6299,
       "length": 32115,
       "coins": 3
     },
@@ -237,7 +237,7 @@
       "diff": 6,
       "song": "Deadlocked",
       "file": "20-deadlocked.json",
-      "objects": 5908,
+      "objects": 5800,
       "length": 35295,
       "coins": 3
     },
@@ -249,7 +249,7 @@
       "diff": 5,
       "song": "Fingerdash",
       "file": "21-fingerdash.json",
-      "objects": 5642,
+      "objects": 5606,
       "length": 27165,
       "coins": 3
     },
@@ -261,7 +261,7 @@
       "diff": 5,
       "song": "Dash",
       "file": "22-dash.json",
-      "objects": 6032,
+      "objects": 5997,
       "length": 23805,
       "coins": 3
     }

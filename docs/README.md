@@ -68,8 +68,14 @@ two exceptions: the coin/gem/pad/orb/portal ids in `Levels.DEFS`, and unknown
 **structural** tiles, which `structuralIds()` promotes to a generic solid block
 when they sit on the 30-unit grid, have at least two grid neighbours, appear at
 least six times and are mostly linked up. That heuristic is what keeps a 2.x
-level (Jumper, Dash, Deadlocked…) playable instead of hollow. Current set:
-22 levels, 68.8k kept objects.
+level (Jumper, Dash, Deadlocked…) playable instead of hollow.
+
+Those generic tiles are landable but never fatal from the side: GD's id table is
+not in the level data, so a piece of decoration or a spike can look exactly like
+a block, and a wrong guess would be an invisible wall in the player's face. The
+spike ids that do show up in the data (`8`, and `191`, which the levels use
+exactly like `8`) are hazards, and the 1.0 block set (`1`–`7`) still kills on its
+walls like the real game. Current set: 22 levels, 68.6k kept objects.
 
 `LevelSelectScene` lists them one row per level (difficulty face, name, author,
 stars, best run) with a virtual row list — only `rows.count` nodes exist, so a

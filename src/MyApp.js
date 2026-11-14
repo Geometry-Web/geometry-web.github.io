@@ -2591,6 +2591,12 @@ var PlayLayer = cc.Layer.extend({
      * above the head) or a wall — and GD kills on walls. The `step` tolerance is
      * what makes the 2.x slopes (which this build draws as tiles) walkable
      * instead of fatal.
+     *
+     * Tiles this build cannot name (GENERIC_BLOCK — the 2.x block library) are
+     * the exception: their side is not fatal. GD's id table is not in the level
+     * data, so a shape that is really decoration or a spike can look exactly like
+     * a block, and a wrong guess would be an invisible wall in the player's face.
+     * They are still landable, which is what the platforms are for.
      */
     collide: function () {
         var L = PLAY_LAYOUT;
@@ -2611,7 +2617,7 @@ var PlayLayer = cc.Layer.extend({
                     if (box.top > floor) floor = box.top;
                 } else if (box.bottom >= player.top - step) {
                     if (box.bottom < ceiling) ceiling = box.bottom;
-                } else {
+                } else if (!obj.def.generic) {
                     this.crash();                    // ran into the side
                     return;
                 }

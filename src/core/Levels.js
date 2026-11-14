@@ -86,9 +86,11 @@
      * as plain 1x1 tiles, and the play layer draws them the way GD does: the
      * `lightsquare` colour fill with a dark `blockOutline` on top (the game's own
      * block art has its interior baked in, which would swallow the level colour).
-     * 8 is the spike; everything else in the 1.0-1.6 range (9, 16, 17, 19, 20,
-     * 21, 29, 30, 39, 40...) sits a few units off the grid and is decoration, not
-     * a hazard, which is why dropping it is safe rather than unfair.
+     * 8 is the classic spike and 191 the 2.0 one (it appears in the level data
+     * exactly like 8: on the grid, in horizontal rows, never stacked). Everything
+     * else in the 1.0-1.6 range (9, 16, 17, 19, 20, 21, 29, 30, 39, 40...) sits a
+     * few units off the grid and is decoration, not a hazard, which is why
+     * dropping it is safe rather than unfair.
      *
      * Portal ids are the ones the level data itself proves: 47 (ball) only shows
      * up from Cycles on, 111 (UFO) from Theory of Everything on, 660 (wave) from
@@ -106,6 +108,7 @@
         [6,  "block", "blockOutline_01_001.png"],
         [7,  "block", "blockOutline_01_001.png"],
         [8,  "spike", "spike_01_001.png"],
+        [191, "spike", "spike_02_001.png"],
 
         // Jump orbs — tap while airborne.
         [36,   "orb", "ring_01_001.png", "yellow"],
@@ -322,7 +325,7 @@
             var tile = tiles[i];
             var def = tile.def;
             if (!def && structural[tile.id] && onGrid(tile.x) && onGrid(tile.y))
-                def = GENERIC_BLOCK;
+                def = tile.y > 0 ? GENERIC_BLOCK : null;   // below the ground = deco
             if (!def) continue;
 
             objects.push(makeObject(def, tile.record, tile.x, tile.y));

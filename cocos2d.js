@@ -18,10 +18,10 @@
             'src/core/GD.js?v=3',
             'src/core/Save.js?v=1',
             'src/core/Audio.js?v=1',
-            'src/core/Levels.js?v=2',
+            'src/core/Levels.js?v=3',
             'src/core/UI.js?v=2',
             'src/resource.js?v=27',
-            'src/MyApp.js?v=29',
+            'src/MyApp.js?v=30',
             'src/dev/KitShowcase.js?v=1'
         ]
     };
