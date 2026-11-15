@@ -28,9 +28,12 @@ recoverable in git history at commit `e23725b`:
 | `index.html` | Hosts `#gameCanvas`, loads `cocos2d.js?v=22`, shows a hint if the engine never boots. |
 | `cocos2d.js` | Boot config: engine file list, `res` path, cache-busting version, then `main.js`. |
 | `main.js` | `cc.game.run` with `renderMode: 1` (Canvas) — no WebGL dependency. Also installs the one-time audio unlock and the `?kit` switch. |
-| `src/core/` | Shared layer: `GD.js` (namespace, sheets, art/text helpers), `Save.js`, `Audio.js`, `Levels.js` and `UI.js` — the widget kit every screen draws its buttons, popups and bars from. |
+| `src/core/` | Shared layer: `GD.js` (namespace, sheets, art/text helpers), `Save.js`, `Audio.js`, `Levels.js`, `UI.js` (widget kit), `Nav.js` (transitions + screen shell), `UIList.js` (virtual scrolling list), `UIText.js` (text prompt). |
+| `src/data/` | Static game data: `Official.js` (main-level metadata, difficulty names, song credits), `Unlocks.js` (achievements, wallet, shops, vaults, map packs, gauntlets, quests, daily chest). |
+| `src/services/` | `Online.js` (the simulated level-browser provider) and `Generate.js` (the deterministic level builder that makes its levels playable). |
+| `src/screens/` | The screens added on top of the menu: `Settings`, `Achievements`, `Online` (+ leaderboard), `Collections` (packs, gauntlets, lists, daily/quests, news), `Shops`, `Vaults` (+ treasure room), `Profile`, `Editor`, and `Routes.js` which maps the Create hub's tiles to them. |
 | `src/resource.js` | Declares every atlas/plist/font; missing files degrade instead of aborting. |
-| `src/MyApp.js` | The app: `MenuScene`, `GarageScene`, `CreateScene`, `StatsScene`, `LevelSelectScene`, `PlayScene`, name editor, screens built on the kit. |
+| `src/MyApp.js` | The three hand-laid core scenes: `MenuScene`, `LevelSelectScene`, `PlayScene` (plus `GarageScene`/`StatsScene`), with the pause menu, practice mode and keyboard input. |
 | `src/dev/KitShowcase.js` | `index.html?kit` — renders every kit widget on one page for layout review. |
 | `levels/` | The playable level set: `manifest.json` + one `<id>-<slug>.json` per level, written by `tools/level-import.js`. |
 | `tools/` | Local helpers: asset server, level importer, frame dumper, sheet gallery, PNG size reader, Icon Kit manifest builder. |
@@ -38,6 +41,38 @@ recoverable in git history at commit `e23725b`:
 | `extensions/` | Optional engine extensions, only loaded when `loadExtension` asks for them. |
 | `res/gd/` | Sprite sheets, fonts and UI art used by the scenes. |
 | `res/gd/icons/` | The complete SD player-icon set (1205 tiny atlases + `manifest.json`) the Icon Kit pages through. |
+| `PROJECT_STATUS.md` | What is done, what is partial and what is deliberately missing, measured against the specification. |
+
+## Screens that are not in `MyApp.js`
+
+Everything that is a *list or a grid of data* lives in `src/screens/` and is built
+from two shared pieces: `GD.UI.screen(options)` (the gradient, Pusab title, back
+arrow, music and fade-in) and `GD.UI.list(parent, options)` (a virtual row list
+that only ever holds `count` nodes, whatever the data length).
+
+| Screen | Data it shows | Notes |
+| --- | --- | --- |
+| `SettingsScene` | `GD.Save.settings` | Volumes apply immediately through `GD.Audio`; reset goes through a confirm. |
+| `AchievementsScene` | `GD.Data.ACHIEVEMENTS` + save counters | Entering it pays any achievement that is already due. |
+| `OnlineScene` | `GD.Online.query()` | Nine tabs, search, saved list; the level popup plays the level for real. |
+| `LeaderboardScene` | `GD.Online.leaderboard()` | Simulated, labelled as such. |
+| `ProfileScene` | `GD.Save` profile/stats/wallet | Rename, Icon Kit, achievements and the stats table link out. |
+| `PacksScene` / `GauntletsScene` | `GD.Data.PACKS` / `GAUNTLETS` | Progress is the real record of the levels they list. |
+| `ListsScene` | `GD.Save` `lists` | Create/delete lists of saved online levels. |
+| `DailyScene` | `GD.Online.daily/weekly`, `GD.Data.QUESTS` | Quest claims and the once-a-day chest. |
+| `ShopScene` | `GD.Data.SHOPS` + wallet | Buying grants a real icon/number, colour or bundle. |
+| `VaultScene` / `TreasureScene` | `GD.Data.VAULTS` / `TREASURE_CHESTS` | Code entry through the kit's text prompt. |
+| `EditorScene` | its own object list | Build/edit/pan, undo/redo, rotate, duplicate, delete, zoom, save and playtest. |
+| `NewsScene` / `ComingSoonScene` | static text | The honest panels (what this build is, what it is not). |
+
+## Simulation boundary
+
+`GD.Online.simulated` is `true` and every screen that lists online data says so
+in its own words ("SIMULATED LEVELS - no connection to GD servers", "Simulated
+rankings", "Simulated creator profile"). Creator handles are prefixed `sim_` so
+no screenshot can be read as a real player's level. Replacing that one module
+with real endpoints is the whole backend integration.
+
 
 ## Levels (`levels/`, `tools/level-import.js`)
 

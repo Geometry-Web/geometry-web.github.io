@@ -357,11 +357,15 @@ var PLAYER_STATS = (function () {
         // Current value of one counter (0 for unknown keys).
         get: function (key) { return load()[key] || 0; },
 
-        // Adds `amount` (default 1) and writes the save file.
+        // Adds `amount` (default 1) and writes the save file. Every counter is
+        // mirrored into GD.Save, which is where the profile, the achievements
+        // and the quests read from — the two files describe the same player.
         add: function (key, amount) {
             var all = load();
-            all[key] = Math.max(0, (all[key] || 0) + (amount === undefined ? 1 : amount));
+            var step = amount === undefined ? 1 : amount;
+            all[key] = Math.max(0, (all[key] || 0) + step);
             save();
+            if (window.GD && GD.Save && GD.Save.stats) GD.Save.stats.add(key, step);
             return all[key];
         },
 
@@ -370,6 +374,7 @@ var PLAYER_STATS = (function () {
             var all = load();
             all[key] = Math.max(0, Math.floor(value) || 0);
             save();
+            if (window.GD && GD.Save && GD.Save.stats) GD.Save.stats.set(key, all[key]);
             return all[key];
         },
 
@@ -681,6 +686,19 @@ function closeSite() {
     }, 0);
 }
 
+/* Opens the scene a screen factory builds, by name. Looking the factory up on
+ * `window` keeps a half-loaded build usable: if a screen file is missing, the
+ * tile still opens the placeholder instead of throwing. */
+function openScreen(name, title) {
+    var factory = window[name];
+    if (typeof factory === "function" && name !== "openScreen") {
+        GD.Nav.go(factory());
+        return;
+    }
+    cc.log("openScreen: no screen called " + name);
+    GD.Nav.go(makePlaceholderScene(title || name));
+}
+
 /* The main menu, built entirely from the GD.UI kit: the magenta grid backdrop,
  * the green Pusab logo and one kit icon button per tile. Going through the kit
  * means every tile shares the same hit area, press animation and click sound as
@@ -728,7 +746,7 @@ var MainMenuLayer = cc.Layer.extend({
         this.button(L.optionsButton, this.onOptions);
         this.button(L.statsButton, this.onStats);
         this.button(L.creatorButton, this.onCreator);
-        this.button(L.secretButton, this.onCreator);
+        this.button(L.secretButton, this.onSecret);
 
         // News.
         this.button(L.newsButton, this.onNews);
@@ -752,11 +770,12 @@ var MainMenuLayer = cc.Layer.extend({
     onPlay: function () { cc.Director.getInstance().replaceScene(new LevelSelectScene()); },
     onGarage: function () { cc.Director.getInstance().replaceScene(new GarageScene()); },
     onCreator: function () { cc.Director.getInstance().replaceScene(new CreatorScene()); },
-    onDaily: function () { cc.Director.getInstance().replaceScene(makePlaceholderScene("DAILY LEVEL")); },
-    onNews: function () { cc.Director.getInstance().replaceScene(makePlaceholderScene("NEWS")); },
-    onAchievements: function () { cc.Director.getInstance().replaceScene(makePlaceholderScene("ACHIEVEMENTS")); },
-    onOptions: function () { cc.Director.getInstance().replaceScene(makePlaceholderScene("SETTINGS")); },
-    onStats: function () { cc.Director.getInstance().replaceScene(new StatsScene()); },
+    onDaily: function () { openScreen("DailyScene", "DAILY LEVEL"); },
+    onNews: function () { openScreen("NewsScene", "NEWS"); },
+    onAchievements: function () { openScreen("AchievementsScene", "ACHIEVEMENTS"); },
+    onOptions: function () { openScreen("SettingsScene", "SETTINGS"); },
+    onStats: function () { openScreen("ProfileScene", "PROFILE"); },
+    onSecret: function () { openScreen("VaultScene", "THE VAULT"); },
     onQuit: function () { closeSite(); },
     onFacebook: function () { window.open("https://facebook.com/geometrydash", "_blank"); },
     onTwitter: function () { window.open("https://twitter.com/robtopgames", "_blank"); },
@@ -954,6 +973,12 @@ var CreatorLayer = cc.Layer.extend({
 
     onCategory: function (sender) {
         var spec = sender.categorySpec;
+        // The Create hub's fifteen tiles are routed to the real screens when
+        // their file is loaded, and fall back to the placeholder if not.
+        if (typeof openCreatorCategory === "function") {
+            openCreatorCategory(spec.scene);
+            return;
+        }
         cc.Director.getInstance().replaceScene(makePlaceholderScene(spec.scene, function () {
             return new CreatorScene();
         }));
@@ -2327,6 +2352,13 @@ var PlayLayer = cc.Layer.extend({
         this._coins = [false, false, false];
         this._speedIndex = PLAY_LAYOUT.speedIndex;
 
+        // Pause + practice state. `_checkpoints` are the practice mode respawn
+        // points, oldest first; `_paused` freezes the physics in update().
+        this._paused = false;
+        this._practice = false;
+        this._checkpoints = [];
+        this._pausedMenu = null;
+
         this.addSpriteFrames();
         this.addSky();
         this.addGround();
@@ -2334,6 +2366,8 @@ var PlayLayer = cc.Layer.extend({
         this.addPlayer();
         this.addHud();
         this.addChrome();
+        this.addPauseButton();
+        this.bindKeys();
 
         this.setTouchMode(cc.TOUCH_ONE_BY_ONE);
         this.setTouchPriority(1);
@@ -2350,9 +2384,11 @@ var PlayLayer = cc.Layer.extend({
         return true;
     },
 
-    // The save record this level writes to: main levels by id, imports by name.
+    // The save record this level writes to: main levels by id, imports by name,
+    // simulated/editor levels by the key their entry carries.
     saveKey: function () {
         if (!this._entry) return "official:0";
+        if (this._entry.key) return this._entry.key;
         if (this._entry.local !== undefined) return "local:" + this._entry.name;
         return "official:" + (this._level ? this._level.id : this._entry.id);
     },
@@ -2457,6 +2493,8 @@ var PlayLayer = cc.Layer.extend({
 
         if (!this._level) return;
 
+        if (this._paused) return;
+
         if (this._finished) {
             this.scrollBackdrop();
             return;
@@ -2464,7 +2502,7 @@ var PlayLayer = cc.Layer.extend({
 
         if (this._dead) {
             this._respawn -= dt;
-            if (this._respawn <= 0) this.startRun();
+            if (this._respawn <= 0) this.respawn();
             return;
         }
 
@@ -2472,6 +2510,7 @@ var PlayLayer = cc.Layer.extend({
         this.layoutSprites();
         this.scrollBackdrop();
         this.updateHud();
+        if (this._practice) this.maybeCheckpoint();
     },
 
     /* One physics step: orbs first (a tap on an orb is not also a jump), then
@@ -2956,6 +2995,229 @@ var PlayLayer = cc.Layer.extend({
         cc.Director.getInstance().replaceScene(new LevelSelectScene());
     },
 
+    /* ------------------------------------------------------------- pause menu
+     * Stops the physics, dims the run and offers what GD's pause menu offers:
+     * resume, restart, practice toggle, exit, plus the two volumes and this
+     * run's progress. Everything goes through the kit's popup, so the layering
+     * and the outside-tap behaviour match the rest of the game. */
+    addPauseButton: function () {
+        var layer = this;
+        GD.UI.iconButton(this, {
+            frame: "GJ_pauseBtn_001.png", x: 42, y: 452, scale: 0.8, z: 30,
+            onClick: function () { layer.openPause(); }
+        });
+    },
+
+    openPause: function () {
+        if (this._paused || this._finished || !this._level) return;
+
+        var layer = this;
+        var scene = this.getParent();
+        this._paused = true;
+        this._hold = false;
+        this._tap = false;
+
+        var handle = GD.UI.popup(scene, {
+            title: "PAUSED",
+            w: 520, h: 330,
+            content: function (content) {
+                var line = GD.label("Progress " + Math.floor(layer.percent()) + "%",
+                                    { scale: GD.UI.TEXT.body, color: GD.UI.COLOR.gold });
+                line.setPosition(0, 104);
+                content.addChild(line, 1);
+
+                var musicLabel = GD.label("MUSIC", { scale: GD.UI.TEXT.tiny,
+                                                     color: GD.UI.COLOR.dim });
+                musicLabel.setPosition(-150, 74);
+                content.addChild(musicLabel, 1);
+
+                GD.UI.slider(content, {
+                    x: 90, y: 58, w: 180,
+                    value: GD.Save.settings.get("musicVolume"),
+                    onChange: function (v) {
+                        GD.Save.settings.set("musicVolume", v);
+                        GD.Audio.applyVolumes();
+                    }, z: 2
+                });
+
+                var sfxLabel = GD.label("SFX", { scale: GD.UI.TEXT.tiny,
+                                                 color: GD.UI.COLOR.dim });
+                sfxLabel.setPosition(-150, 34);
+                content.addChild(sfxLabel, 1);
+
+                GD.UI.slider(content, {
+                    x: 90, y: 18, w: 180,
+                    value: GD.Save.settings.get("sfxVolume"),
+                    onChange: function (v) {
+                        GD.Save.settings.set("sfxVolume", v);
+                        GD.Audio.applyVolumes();
+                    }, z: 2
+                });
+
+                GD.UI.button(content, {
+                    x: 210, y: 58, w: 140, h: 38, text: "RESTART", style: "cyan",
+                    textScale: GD.UI.TEXT.tiny, z: 3,
+                    onClick: function () { handle.close(true); layer.restartRun(); }
+                });
+
+                var practiceBtn = GD.UI.button(content, {
+                    x: 210, y: 18, w: 140, h: 38,
+                    text: layer._practice ? "PRACTICE: ON" : "PRACTICE: OFF",
+                    style: layer._practice ? "green" : "grey",
+                    textScale: GD.UI.TEXT.tiny, z: 3,
+                    onClick: function () {
+                        layer.setPractice(!layer._practice);
+                        practiceBtn.setCaption(layer._practice ? "PRACTICE: ON"
+                                                              : "PRACTICE: OFF");
+                    }
+                });
+            },
+            buttons: [
+                { text: "RESUME", style: "green", onClick: function () { layer.resume(); } },
+                { text: "EXIT", style: "red", onClick: function () {
+                    layer._paused = false;
+                    layer.onBack();
+                } }
+            ],
+            onClose: function () { layer.resume(); }
+        });
+
+        this._pausedMenu = handle;
+    },
+
+    resume: function () {
+        this._paused = false;
+        this._pausedMenu = null;
+    },
+
+    restartRun: function () {
+        this._paused = false;
+        this._checkpoints.length = 0;
+        this.startRun();
+    },
+
+    /* ---------------------------------------------------------- practice mode
+     * Same level, same physics, but a crash respawns at the last checkpoint
+     * instead of the start, and the run records practice % (never stars or
+     * coins) in the save file. */
+    setPractice: function (on) {
+        this._practice = !!on;
+        this._checkpoints.length = 0;
+        this._paused = false;
+        this.startRun();
+        GD.UI.toast(this.getParent(), this._practice ? "Practice mode on"
+                                                     : "Practice mode off");
+    },
+
+    /* Drops a checkpoint when the cube is on the floor and has moved far enough
+     * from the previous one. The marker fades out; the checkpoint stays. */
+    maybeCheckpoint: function () {
+        if (!this._onGround || this._dead || this._finished) return;
+        var last = this._checkpoints[this._checkpoints.length - 1];
+        if (last && this._x - last.x < 240) return;
+        if (this._checkpoints.length >= 40) return;
+
+        this._checkpoints.push({
+            x: this._x,
+            y: this._y,
+            gravity: this._gravity,
+            mode: this._mode,
+            speed: this._speedIndex
+        });
+
+        var marker = cc.LayerColor.create(cc.c4b(120, 255, 120, 160), 4, 40);
+        marker.setPosition(PLAY_LAYOUT.playerX, PLAY_LAYOUT.groundY);
+        this.addChild(marker, 6);
+        marker.runAction(cc.Sequence.create(cc.DelayTime.create(0.6),
+                                            cc.FadeOut.create(0.4),
+                                            cc.RemoveSelf.create()));
+    },
+
+    /* Death handler: practice respawns at the last checkpoint, normal mode at
+     * the start of the level. */
+    respawn: function () {
+        var cp = this._practice && this._checkpoints.length
+               ? this._checkpoints[this._checkpoints.length - 1] : null;
+
+        if (!cp) { this.startRun(); return; }
+
+        var i;
+        for (i = 0; i < this._objects.length; i++) {
+            if (this._objects[i].x >= cp.x) this._objects[i].taken = false;
+        }
+
+        this._x = cp.x;
+        this._y = cp.y;
+        this._vy = 0;
+        this._prevY = cp.y;
+        this._gravity = cp.gravity;
+        this._speedIndex = cp.speed;
+        this._dead = false;
+        this._hold = false;
+        this._tap = false;
+
+        for (i = this._live.length - 1; i >= 0; i--) this.release(this._live[i]);
+        this._live = [];
+
+        this.setMode(cp.mode);
+        this._player.stopAllActions();
+        this._player.setOpacity(255);
+        this._player.setRotation(0);
+        this._player.setScale(PLAY_LAYOUT.scale);
+
+        this.placePlayer();
+        this.layoutSprites();
+        this.scrollBackdrop();
+        this.refreshCoinHud();
+        this.updateHud();
+        this.showAttempt(PLAYER_STATS.add("totalAttempts"));
+    },
+
+    /* -------------------------------------------------------------- keyboard
+     * Space / up / W jump (or thrust), R restarts, P or Escape pauses. Bound to
+     * the document so the canvas does not need focus first, and unbound in
+     * onExit so a finished level leaves nothing behind. */
+    bindKeys: function () {
+        if (this._keys) return;
+        var layer = this;
+
+        this._keys = {
+            down: function (event) {
+                var key = (event.key || "").toLowerCase();
+                if (key === " " || key === "arrowup" || key === "w" || event.keyCode === 32) {
+                    event.preventDefault();
+                    layer._hold = true;
+                    layer._tap = true;
+                } else if (key === "r" && !layer._finished) {
+                    layer.restartRun();
+                } else if (key === "p" || key === "escape") {
+                    if (layer._paused) { if (layer._pausedMenu) layer._pausedMenu.close(); }
+                    else layer.openPause();
+                }
+            },
+            up: function (event) {
+                var key = (event.key || "").toLowerCase();
+                if (key === " " || key === "arrowup" || key === "w" || event.keyCode === 32)
+                    layer._hold = false;
+            }
+        };
+
+        document.addEventListener("keydown", this._keys.down, false);
+        document.addEventListener("keyup", this._keys.up, false);
+    },
+
+    unbindKeys: function () {
+        if (!this._keys) return;
+        document.removeEventListener("keydown", this._keys.down, false);
+        document.removeEventListener("keyup", this._keys.up, false);
+        this._keys = null;
+    },
+
+    onExit: function () {
+        this.unbindKeys();
+        this._super();
+    },
+
     // Opened without level data (a fresh checkout, or a manifest that never
     // loaded): say so instead of running an empty world.
     showMissing: function () {
@@ -3023,6 +3285,9 @@ var PlayLayer = cc.Layer.extend({
         this._respawn = PLAY_LAYOUT.respawnDelay;
         this.saveBest();
 
+        // Attempt/orb achievements can come due mid-run; surface them now.
+        GD.Data.checkAchievements(this.getParent());
+
         // GD blows the cube up; a fast shrink-fade reads the same way.
         GD.Audio.sfx("explode");
         this._player.stopAllActions();
@@ -3050,6 +3315,27 @@ var PlayLayer = cc.Layer.extend({
         this._player.setRotation(0);
         this.updateHud();
 
+        /* Practice completion: the level is done, but GD does not hand out
+         * stars or coins for it, and the banner says so. */
+        if (this._practice) {
+            GD.Save.completeLevel(this._key, 100, { practice: true });
+            GD.Audio.sfx("endStart");
+
+            var practiceVeil = this.addQuad(0, 0, size.width, size.height,
+                                            L.colors.veil, this, 19);
+            practiceVeil.setOpacity(0);
+            practiceVeil.runAction(cc.FadeTo.create(0.35, L.colors.veil[3]));
+
+            var practiceBanner = this.makeLabel("PRACTICE COMPLETE", h.complete.scale,
+                                                this, 20);
+            practiceBanner.setPosition(h.complete.x, h.complete.y);
+
+            var practiceHint = this.makeLabel("Practice mode gives no stars or coins",
+                                              h.hint.scale, this, 20);
+            practiceHint.setPosition(h.hint.x, h.hint.y);
+            return;
+        }
+
         var result = GD.Save.completeLevel(this._key, 100, {
             coins: this._coins,
             stars: this._level.stars || 0
@@ -3063,6 +3349,12 @@ var PlayLayer = cc.Layer.extend({
         }
 
         for (i = 0; i < 3; i++) if (this._coins[i]) coins++;
+
+        // Anything that just became due (level completed, stars, coins) unlocks
+        // here, on the completion screen, where the player can see it.
+        var unlocked = GD.Data.checkAchievements(this.getParent());
+        if (unlocked.length)
+            GD.UI.toast(this.getParent(), "Achievement: " + unlocked[0].name);
 
         GD.Audio.sfx("endStart");
 
@@ -3086,12 +3378,13 @@ var PlayLayer = cc.Layer.extend({
     },
 
     // Stores a new best percentage for the level (the level select shows it) and
-    // counts the attempt, the way GD's own level record does.
+    // counts the attempt, the way GD's own level record does. A practice run
+    // writes the practice percentage instead, so normal-mode bests stay honest.
     saveBest: function () {
         var percent = Math.floor(this.percent());
         if (percent < 1) return;
 
-        GD.Save.completeLevel(this._key, percent);
+        GD.Save.completeLevel(this._key, percent, { practice: this._practice });
     },
 
     /* ---------------------------------------------------------------- input */

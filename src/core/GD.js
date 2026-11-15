@@ -161,6 +161,15 @@ GD.frameSize = function (frame) {
     return GD.looseSize(frame) || cc.size(0, 0);
 };
 
+/* Sprite frame for `name`, or `fallback`'s frame, or null. Screens that index a
+ * family by number (difficulty faces, icon pools) use this instead of assuming
+ * the exact frame exists. */
+GD.safeFrame = function (name, fallback) {
+    var cache = cc.SpriteFrameCache.getInstance();
+    return cache.getSpriteFrame(name) ||
+           (fallback ? cache.getSpriteFrame(fallback) : null) || null;
+};
+
 /* Sprite for a sheet frame or a loose PNG; null when the art is not shipped.
  * Loose sprites get their rect set up front so getContentSize() is usable
  * immediately, not just after the image finishes loading. */
@@ -318,6 +327,100 @@ GD.nine = function (frame, width, height, insets) {
     return node;
 };
 
+/* Sheets that only a few screens need (gauntlet islands, shop chests, vault
+ * doors, editor chrome). They are ~2 MB together, so they are NOT in the boot
+ * preload: a screen calls `GD.ensureSheets([...])` and the plist is added to the
+ * frame cache on first use, which also starts the texture download. Frames from
+ * a texture that is still decoding finish themselves, so the screen draws
+ * immediately and the art fills in. */
+GD.EXTRA_SHEETS = {
+    gauntlet: "res/gd/GauntletSheet.plist",
+    shop: "res/gd/GJ_ShopSheet.plist",
+    shop1: "res/gd/GJ_ShopSheet01.plist",
+    shop2: "res/gd/GJ_ShopSheet02.plist",
+    shop3: "res/gd/GJ_ShopSheet03.plist",
+    treasure: "res/gd/TreasureRoomSheet.plist",
+    secret: "res/gd/SecretSheet.plist",
+    tower: "res/gd/TowerSheet.plist",
+    dungeon: "res/gd/DungeonSheet.plist",
+    world: "res/gd/WorldSheet.plist",
+    editor: "res/gd/GJ_GameSheetEditor.plist",
+    glow: "res/gd/GJ_GameSheetGlow.plist",
+    particle: "res/gd/GJ_ParticleSheet.plist"
+};
+
+GD._extraLoaded = {};
+
+/* Adds the named extra sheets to the frame cache exactly once.
+ *
+ * The plists and their PNGs are part of the boot preload (src/resource.js), so
+ * the normal path is a synchronous addSpriteFrames(). If a sheet's texture is
+ * still decoding — or the sheet was left out of the preload — the PNG is
+ * requested here and the frames are added as soon as it arrives, then `onDone`
+ * runs so a screen can repaint.
+ *
+ * cc.Loader.preload() is deliberately not used: in this engine build its plist
+ * handler does not register frames, so a loader-based sheet would silently
+ * stay empty. */
+GD.ensureSheets = function (names, onDone) {
+    if (!names) { if (onDone) onDone(); return; }
+    var cache = cc.SpriteFrameCache.getInstance();
+    var waiting = 0;
+
+    function done() {
+        if (--waiting > 0) return;
+        if (onDone) onDone();
+    }
+
+    for (var i = 0; i < names.length; i++) {
+        var key = names[i];
+        if (GD._extraLoaded[key]) continue;
+        var plist = GD.EXTRA_SHEETS[key];
+        if (!plist) { cc.log("GD.ensureSheets: unknown sheet " + key); continue; }
+        GD._extraLoaded[key] = true;
+
+        var probe = GD.SHEET_PROBES[key];
+        if (probe && cache.getSpriteFrame(probe)) continue;    // already registered
+
+        try { cache.addSpriteFrames(plist); } catch (e) { /* texture not ready */ }
+        if (probe && cache.getSpriteFrame(probe)) continue;
+
+        // The texture is not decoded yet: fetch it, then add the frames.
+        var texture = cc.TextureCache.getInstance().addImage(plist.replace(/\.plist$/, ".png"));
+        waiting++;
+        (function (path, tex) {
+            function register() {
+                try { cc.SpriteFrameCache.getInstance().addSpriteFrames(path); }
+                catch (err) { cc.log("GD.ensureSheets: " + path + " -> " + err); }
+                done();
+            }
+            if (tex && !tex.isLoaded() && tex.addLoadedEventListener)
+                tex.addLoadedEventListener(register, null);
+            else
+                register();
+        })(plist, texture);
+    }
+
+    if (waiting === 0 && onDone) onDone();
+};
+
+/* One frame name per extra sheet, used to tell "already loaded" from "not yet". */
+GD.SHEET_PROBES = {
+    gauntlet: "island_chaos_001.png",
+    shop: "chest_01_02_001.png",
+    shop1: "chest_01_02_001.png",
+    shop2: "chest_01_02_001.png",
+    shop3: "chest_01_02_001.png",
+    treasure: "treasureRoomGround_001.png",
+    secret: "GJ_secretLock2_001.png",
+    tower: "towerDoor_locked_001.png",
+    dungeon: "dungeon_gate_001.png",
+    world: "worldDot_001.png",
+    editor: "bgIcon_01_001.png",
+    glow: "GJ_glow_01_001.png",
+    particle: "particle_01.png"
+};
+
 /* --------------------------------------------------------------- sheet prep */
 /* Adds every shipped plist to the frame cache exactly once. Layers call this
  * from init(); re-adding is harmless but the flag keeps it off the hot path. */
@@ -459,10 +562,34 @@ GD.iconFrameLoaded = function (pool, number) {
     return !!(frame && frame.textureLoaded());
 };
 
-// Sprite of an icon, or null when it is not available.
+/* Sprite of an icon, or null when it is not available *yet*.
+ *
+ * A texture that has not finished decoding cannot be drawn: the canvas backend
+ * would call drawImage() with a 0x0 image, which throws inside the render loop
+ * and stops the game. So this returns null until the atlas is decoded — callers
+ * draw the sheet frame first and upgrade with GD.applyIcon(). */
 GD.iconSprite = function (pool, number) {
     var frame = GD.iconSpriteFrame(pool, number);
-    return frame ? cc.Sprite.createWithSpriteFrame(frame) : null;
+    if (!frame || !frame.textureLoaded()) return null;
+    return cc.Sprite.createWithSpriteFrame(frame);
+};
+
+/* Swaps `sprite` to the loose icon once its atlas is decoded. Returns true when
+ * the frame was applied immediately. The sprite is only touched again if it is
+ * still in a scene, so a screen that has been left behind never crashes the
+ * callback. */
+GD.applyIcon = function (sprite, pool, number) {
+    var frame = GD.iconSpriteFrame(pool, number);
+    if (!frame || !sprite) return false;
+    if (frame.textureLoaded()) {
+        sprite.setDisplayFrame(frame);
+        return true;
+    }
+    GD.preloadIcons(pool, [number], function () {
+        if (!sprite.getParent()) return;
+        if (frame.textureLoaded()) sprite.setDisplayFrame(frame);
+    }, null);
+    return false;
 };
 
 /* Starts the download of the given icons and calls back once they are all

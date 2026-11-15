@@ -15,13 +15,35 @@
         appFiles: [
             // Shared core, loaded in dependency order: namespace/art helpers,
             // save file, audio, then the widget kit that builds on all three.
-            'src/core/GD.js?v=3',
-            'src/core/Save.js?v=1',
+            'src/core/GD.js?v=8',
+            'src/core/Save.js?v=2',
             'src/core/Audio.js?v=1',
-            'src/core/Levels.js?v=3',
-            'src/core/UI.js?v=2',
-            'src/resource.js?v=27',
-            'src/MyApp.js?v=30',
+            'src/core/Levels.js?v=4',
+            'src/core/UI.js?v=5',
+            'src/core/Nav.js?v=2',
+            'src/core/UIList.js?v=1',
+            'src/core/UIText.js?v=1',
+            // Static game data (official level metadata, unlocks, collections).
+            'src/data/Official.js?v=1',
+            'src/data/Unlocks.js?v=2',
+            // Local service layer: the simulated online provider and the level
+            // generator that makes its levels playable.
+            'src/services/Generate.js?v=1',
+            'src/services/Online.js?v=1',
+            'src/resource.js?v=29',
+            'src/MyApp.js?v=33',
+            // Screens built on the kit, on top of the menu/level select/play
+            // scenes in MyApp.js.
+            'src/screens/Settings.js?v=2',
+            'src/screens/Achievements.js?v=1',
+            'src/screens/Online.js?v=2',
+            'src/screens/Collections.js?v=4',
+            'src/screens/Routes.js?v=1',
+            'src/screens/Shops.js?v=3',
+            'src/screens/Vaults.js?v=4',
+            'src/screens/Profile.js?v=7',
+            'src/screens/Colors.js?v=1',
+            'src/screens/Editor.js?v=3',
             'src/dev/KitShowcase.js?v=1'
         ]
     };
@@ -53,3 +75,11 @@
         s.id = 'cocos2d-html5';
     });
 })();
+
+
+
+
+
+
+
+

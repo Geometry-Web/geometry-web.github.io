@@ -16,6 +16,26 @@ var g_resources = [
     // Portals, jump pads and secret coins — the play layer draws all three.
     { type: "image", src: "res/gd/GJ_GameSheet02.png" },
     { type: "plist", src: "res/gd/GJ_GameSheet02.plist" },
+    // Secondary sheets: the gauntlet islands, the shop shelves, the treasure
+    // room, the vault doors and the tower. They are ~1.4 MB together and only
+    // four screens use them, but they belong in the preload: a screen that is
+    // opened later cannot block on a synchronous plist read (see
+    // GD.ensureSheets), so the frames have to be registered up front.
+    { type: "image", src: "res/gd/GauntletSheet.png" },
+    { type: "plist", src: "res/gd/GauntletSheet.plist" },
+    { type: "image", src: "res/gd/GJ_ShopSheet.png" },
+    { type: "plist", src: "res/gd/GJ_ShopSheet.plist" },
+    { type: "image", src: "res/gd/GJ_ShopSheet01.png" },
+    { type: "plist", src: "res/gd/GJ_ShopSheet01.plist" },
+    { type: "image", src: "res/gd/TreasureRoomSheet.png" },
+    { type: "plist", src: "res/gd/TreasureRoomSheet.plist" },
+    { type: "image", src: "res/gd/SecretSheet.png" },
+    { type: "plist", src: "res/gd/SecretSheet.plist" },
+    { type: "image", src: "res/gd/TowerSheet.png" },
+    { type: "plist", src: "res/gd/TowerSheet.plist" },
+    { type: "image", src: "res/gd/DungeonSheet.png" },
+    { type: "plist", src: "res/gd/DungeonSheet.plist" },
+
     // Font for the "Geometry Dash" logo.
     { type: "image", src: "res/gd/bigFont.png" },
     { src: "res/gd/bigFont.fnt" },

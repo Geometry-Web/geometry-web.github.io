@@ -66,6 +66,8 @@ GD.Save = (function () {
             language: "en"
         },
         levels: {},          // "official:1" -> {normal, practice, attempts, coins, completed}
+        // Spendable currencies. Stars are progress and stay in `stats`.
+        wallet: { diamonds: 0, orbs: 0, keys: 0 },
         achievements: {},    // id -> {unlocked, progress}
         unlocked: {},        // shop / vault items
         daily: { chestDay: 0, lastDailyComplete: 0, questsClaimed: 0 },
@@ -272,6 +274,18 @@ GD.Save = (function () {
                 return next;
             },
             all: function () { return load().settings; }
+        },
+
+        /* ------------------------------------------------------------ wallet */
+        /* The spendable currencies survive a save written before the wallet
+         * existed: a missing object is created on first read. */
+        wallet: function () {
+            var data = load();
+            if (!data.wallet) data.wallet = { diamonds: 0, orbs: 0, keys: 0 };
+            if (data.wallet.diamonds === undefined) data.wallet.diamonds = 0;
+            if (data.wallet.orbs === undefined) data.wallet.orbs = 0;
+            if (data.wallet.keys === undefined) data.wallet.keys = 0;
+            return data.wallet;
         },
 
         /* -------------------------------------------------------------- levels */

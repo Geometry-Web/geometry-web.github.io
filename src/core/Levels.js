@@ -710,6 +710,9 @@
     /* The runtime level behind a level-select entry. */
     Levels.entry = function (entry) {
         if (!entry) return null;
+        // A level handed over directly (the editor's playtest, a simulated
+        // online level) needs no lookup at all.
+        if (entry.level) return entry.level;
         if (entry.local !== undefined) {
             var packed = Levels.imported()[entry.local];
             return packed ? Levels.unpack(packed) : null;

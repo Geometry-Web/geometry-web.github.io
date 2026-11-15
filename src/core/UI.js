@@ -15,9 +15,29 @@ GD.UI.STYLE = {
     green: "GJ_button_01.png",
     cyan: "GJ_button_02.png",
     pink: "GJ_button_03.png",
+    purple: "GJ_button_03.png",     // the shipped set has no separate purple
     grey: "GJ_button_04.png",
     slate: "GJ_button_05.png",
     red: "GJ_button_06.png"
+};
+
+/* Style names are looked up here, never turned into a file path directly: a
+ * typo must not turn into a 404 and a blank button. Unknown names log once and
+ * fall back to green. */
+GD.UI.styleFrame = function (style, fallback) {
+    if (style && GD.UI.STYLE[style]) return GD.UI.STYLE[style];
+    var cache = cc.SpriteFrameCache.getInstance();
+    if (style && cache.getSpriteFrame(style)) return style;
+    if (style) cc.log("GD.UI: unknown button style '" + style + "'");
+    return fallback || GD.UI.STYLE.green;
+};
+
+GD.UI.panelFrame = function (style, fallback) {
+    if (style && GD.UI.PANEL[style]) return GD.UI.PANEL[style];
+    var cache = cc.SpriteFrameCache.getInstance();
+    if (style && cache.getSpriteFrame(style)) return style;
+    if (style) cc.log("GD.UI: unknown panel style '" + style + "'");
+    return fallback || GD.UI.PANEL.brown;
 };
 
 GD.UI.PANEL = {
@@ -195,7 +215,7 @@ GD.UI.button = function (parent, opts) {
     opts = opts || {};
     var w = opts.w || 200;
     var h = opts.h || 46;
-    var frame = GD.UI.STYLE[opts.style || "green"] || opts.style || GD.UI.STYLE.green;
+    var frame = GD.UI.styleFrame(opts.style, GD.UI.STYLE.green);
 
     var layer = cc.Layer.create();
     layer.setContentSize(w, h);
@@ -372,7 +392,7 @@ GD.UI.iconButton = function (parent, opts) {
 GD.UI.panel = function (parent, opts) {
     opts = opts || {};
     var w = opts.w || 420, h = opts.h || 260;
-    var frame = GD.UI.PANEL[opts.style || "brown"] || opts.style || GD.UI.PANEL.brown;
+    var frame = GD.UI.panelFrame(opts.style, GD.UI.PANEL.brown);
 
     var node = cc.NodeRGBA.create();
     node.setPosition(opts.x || GD.W / 2, opts.y || GD.H / 2);
@@ -551,6 +571,43 @@ GD.UI.slider = function (parent, opts) {
     node.setValue = function (v) { value = GD.clamp(v, 0, 1); place(); };
     place();
     return node;
+};
+
+/* Invisible press target: the caller draws the art, this only owns the touch
+ * handling. Cards, tiles and any custom-drawn control use it instead of trying
+ * to hide a full button with opacity. */
+GD.UI.hitPad = function (parent, opts) {
+    opts = opts || {};
+    var w = opts.w || 120, h = opts.h || 120;
+
+    var layer = cc.Layer.create();
+    layer.setContentSize(w, h);
+    layer.setAnchorPoint(0, 0);
+    layer.setPosition((opts.x || 0) - w / 2, (opts.y || 0) - h / 2);
+    layer._enabled = opts.enabled !== false;
+
+    function inside(touch) {
+        var p = layer.convertTouchToNodeSpace(touch);
+        return p.x >= 0 && p.y >= 0 && p.x <= w && p.y <= h;
+    }
+
+    layer.onTouchBegan = function (touch) {
+        return layer._enabled && inside(touch);
+    };
+    layer.onTouchEnded = function (touch) {
+        if (!inside(touch)) return;
+        if (opts.sound !== null) GD.Audio.sfx(opts.sound || "click");
+        if (opts.onClick) opts.onClick(layer);
+    };
+    layer.onTouchMoved = function () { };
+    layer.onTouchCancelled = function () { };
+
+    layer.setTouchMode(cc.TOUCH_ONE_BY_ONE);
+    layer.setTouchPriority(opts.priority === undefined ? 0 : opts.priority);
+    layer.setTouchEnabled(true);
+    if (opts.enabled === false) layer.setTouchEnabled(false);
+    parent.addChild(layer, opts.z === undefined ? 10 : opts.z);
+    return layer;
 };
 
 /* ------------------------------------------------------------ progress bar */
