@@ -218,6 +218,7 @@ function OnlineScene(opts) {
         title: "ONLINE LEVELS",
         titleY: 500,
         background: { top: [20, 62, 150], bottom: [10, 18, 62], ground: false },
+        back: function () { return new CreatorScene(); },
         layout: function (layer) {
             var scene = layer.getParent();
             var tabContainer = cc.Node.create();

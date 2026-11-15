@@ -20,7 +20,7 @@
             'src/core/Audio.js?v=1',
             'src/core/Levels.js?v=4',
             'src/core/UI.js?v=5',
-            'src/core/Nav.js?v=2',
+            'src/core/Nav.js?v=3',
             'src/core/UIList.js?v=1',
             'src/core/UIText.js?v=1',
             // Static game data (official level metadata, unlocks, collections).
@@ -36,12 +36,12 @@
             // scenes in MyApp.js.
             'src/screens/Settings.js?v=2',
             'src/screens/Achievements.js?v=1',
-            'src/screens/Online.js?v=2',
+            'src/screens/Online.js?v=3',
             'src/screens/Collections.js?v=4',
             'src/screens/Routes.js?v=1',
             'src/screens/Shops.js?v=3',
             'src/screens/Vaults.js?v=4',
-            'src/screens/Profile.js?v=7',
+            'src/screens/Profile.js?v=8',
             'src/screens/Colors.js?v=1',
             'src/screens/Editor.js?v=3',
             'src/dev/KitShowcase.js?v=1'
@@ -75,6 +75,8 @@
         s.id = 'cocos2d-html5';
     });
 })();
+
+
 
 
 

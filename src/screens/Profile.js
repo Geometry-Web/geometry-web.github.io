@@ -75,7 +75,7 @@ function ProfileScene(opts) {
         title: "PROFILE",
         titleY: 498,
         background: { top: [70, 40, 120], bottom: [18, 10, 36], ground: false },
-        back: function () { return new CreatorScene(); },
+        back: function () { return new MyScene(); },
         layout: function (layer) {
             var scene = layer.getParent();
             layer.addQuad(96, 452, 768, 280, [0, 0, 0, 80], 2);

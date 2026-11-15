@@ -98,6 +98,8 @@ GD.UI.screen = function (opts) {
             this._super();
             GD.loadSheets();
             if (opts.sheets) GD.ensureSheets(opts.sheets);
+            // Lets a probe (and the console) say which screen is running.
+            this.__screenName = opts.title || "screen";
 
             var bg = opts.background || { top: [12, 110, 243], bottom: [22, 36, 128], ground: false };
             if (bg.menu) GD.UI.menuBackground(this, bg.menu);
