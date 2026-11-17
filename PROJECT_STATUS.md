@@ -84,7 +84,21 @@ Verification method: headless Chromium/Edge probes in `../.tmp-verify/`
 | --- | --- | --- |
 | Versioned save (profile, stats, settings, levels, achievements, unlocks) | done | `src/core/Save.js` |
 | Simulated online provider, clearly labelled in UI | done | `GD.Online` (`src/services/Online.js`) |
-| Real backend | missing by design | static GitHub Pages host; `GD.Online` documents the single seam to swap in |
+| Account backend (Node + Express + SQLite) | done | `server/` — see `server/README.md` |
+| Registration, login, logout, password change, account deletion | done | `server/src/modules/authRoutes.js`; screens `src/screens/Account.js` |
+| Persistent server profiles (icons, colours, description, stats, wallet) | done | `server/src/modules/users.js`; pulled into the save on sign-in |
+| Level upload + version history + revision conflicts | done | `POST/PATCH /levels`, `level_versions`, `src/screens/Editor.js` UPLOAD |
+| Per-user sharing: invitation → accept → access → revoke | done | `server/src/modules/shares.js`; `src/screens/SocialScreens.js` |
+| Private / shared / unlisted / public visibility enforced server-side | done | `accessFor()` in `server/src/modules/levels.js` |
+| Friends, requests, blocking, following, messages, notifications | done | `server/src/modules/friends.js`, `messages.js`, `notifications.js` |
+| Comments, likes, leaderboards, achievements, quests, shop, ledger | done | `server/src/modules/*`; daily/quest/achievement claims are server-checked |
+| Reports + moderation tools with audit log | done | `server/src/modules/moderation.js` |
+| Live level browsing in the game | done | `src/services/OnlineServer.js`; falls back to the labelled demo when the API is unreachable |
+| Automated API tests (33) | done | `server/test/*.test.js` via `npm test` |
+
+Connecting the game to the API is configuration, not code: `?api=https://host`,
+`window.GD_API_URL`, or `GD.CONFIG.setApi(url)`. With no API configured the game
+stays in guest mode and says so on the account screen.
 
 ## Known limitations (documented, not hidden)
 
@@ -93,8 +107,13 @@ Verification method: headless Chromium/Edge probes in `../.tmp-verify/`
    and a platformer physics mode, which is still missing.
 2. Unknown 2.x tiles are landable but never fatal from the side (see
    `docs/README.md`), because GD's object id table is not part of the level data.
-3. Online content is local simulation. No account system, no upload, no real
-   comments; the UI says so.
+3. The simulated online browser remains for guests; live content needs the API
+   from `server/` to be running and configured.
 4. Flight modes (ship/wave/UFO/jetpack) rest on the ground instead of clamping
    to GD's exact flight corridor.
 5. Mirror/size/teleport portals and most 2.x triggers are not implemented yet.
+6. `POST /users/me/progress` accepts capped, client-reported play counters; the
+   server cannot verify a run without a replay format.
+7. Real-time collaborative editing is not implemented. Sharing supports
+   view/play/comment/copy/edit with revision checks and version history, which
+   prevents silent overwrites, but there is no live co-editing session.

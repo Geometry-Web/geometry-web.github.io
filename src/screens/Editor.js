@@ -268,6 +268,50 @@ function EditorScene() {
                     }
                 });
             }
+
+            /* Publishes the level to the account server. The packed object list is
+             * exactly what GD.Levels.unpack() reads back, so the uploaded level is
+             * playable without a re-import. Sharing happens from the SHARED screen
+             * (or straight after publishing, via the same dialog). */
+            function uploadLevel() {
+                if (!state.objects.length) {
+                    GD.UI.alert(scene, "EMPTY LEVEL", "Place at least one object first.");
+                    return;
+                }
+                GD.Account.require(scene, function () {
+                    var packed = GD.Levels.pack(runtimeLevel());
+                    var runtime = runtimeLevel();
+                    var form = GD.UI.form(scene, {
+                        title: "PUBLISH LEVEL",
+                        okText: "PUBLISH",
+                        fields: [
+                            { key: "name", label: "LEVEL NAME", value: state.name, maxLength: 50 },
+                            { key: "description", label: "DESCRIPTION", maxLength: 300 }
+                        ],
+                        onSubmit: function (values, api) {
+                            return GD.Api.post("/levels", {
+                                name: values.name,
+                                description: values.description,
+                                data: JSON.stringify(packed),
+                                dataFormat: "json",
+                                difficulty: Math.min(10, Math.max(0, runtime.diff || 0)),
+                                length: "medium",
+                                visibility: "private",
+                                song: runtime.song
+                            }).then(function (response) {
+                                state.name = response.level.name;
+                                GD.UI.toast(scene, "Published #" + response.level.id);
+                                openShareDialog(scene, response.level.id, response.level.name, null);
+                                return false;
+                            }, function (error) {
+                                api.setError(error.message);
+                                return true;
+                            });
+                        }
+                    });
+                    return form;
+                });
+            }
             /* ------------------------------------------------------ palette UI */
             var palette = cc.Node.create();
             layer.addChild(palette, 20);
@@ -365,8 +409,12 @@ function EditorScene() {
                 textScale: GD.UI.TEXT.tiny, z: 20, onClick: playtest
             });
             GD.UI.button(layer, {
-                x: 868, y: 40, w: 112, h: 36, text: "SAVE", style: "green",
+                x: 846, y: 40, w: 104, h: 36, text: "SAVE", style: "green",
                 textScale: GD.UI.TEXT.tiny, z: 20, onClick: saveLevel
+            });
+            GD.UI.button(layer, {
+                x: 926, y: 40, w: 112, h: 36, text: "UPLOAD", style: "blue",
+                textScale: GD.UI.TEXT.tiny, z: 20, onClick: uploadLevel
             });
 
             var hint = GD.label("Tap the canvas to place - EDIT mode selects an object",

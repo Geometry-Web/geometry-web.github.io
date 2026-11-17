@@ -23,27 +23,38 @@
             'src/core/Nav.js?v=3',
             'src/core/UIList.js?v=1',
             'src/core/UIText.js?v=1',
+            'src/core/UIForm.js?v=1',
             // Static game data (official level metadata, unlocks, collections).
             'src/data/Official.js?v=1',
             'src/data/Unlocks.js?v=2',
-            // Local service layer: the simulated online provider and the level
-            // generator that makes its levels playable.
+            // API configuration + the account/session layer. config.js has to
+            // come first: Api.js reads GD.CONFIG.apiBase when it loads.
+            'src/config.js?v=1',
+            'src/services/Api.js?v=1',
+            'src/services/Account.js?v=1',
+            // Local service layer: the simulated online provider, the level
+            // generator that makes its levels playable, and the live provider
+            // that talks to the account server.
             'src/services/Generate.js?v=1',
             'src/services/Online.js?v=1',
+            'src/services/OnlineServer.js?v=1',
             'src/resource.js?v=29',
-            'src/MyApp.js?v=33',
+            'src/MyApp.js?v=34',
             // Screens built on the kit, on top of the menu/level select/play
             // scenes in MyApp.js.
             'src/screens/Settings.js?v=2',
             'src/screens/Achievements.js?v=1',
-            'src/screens/Online.js?v=3',
+            'src/screens/Online.js?v=4',
             'src/screens/Collections.js?v=4',
             'src/screens/Routes.js?v=1',
             'src/screens/Shops.js?v=3',
             'src/screens/Vaults.js?v=4',
             'src/screens/Profile.js?v=8',
             'src/screens/Colors.js?v=1',
-            'src/screens/Editor.js?v=3',
+            'src/screens/Editor.js?v=4',
+            'src/screens/Social.js?v=1',
+            'src/screens/SocialScreens.js?v=1',
+            'src/screens/Account.js?v=1',
             'src/dev/KitShowcase.js?v=1'
         ]
     };

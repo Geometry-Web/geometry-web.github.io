@@ -41,14 +41,25 @@ jobs:
           done
           echo "Static site tree is complete."
 
+      - name: Stage the static site
+        run: |
+          set -euo pipefail
+          # The API lives in this repository too, but it is a Node service, not
+          # part of the site: GitHub Pages must only receive the static files.
+          mkdir -p _site
+          rsync -a --exclude 'server' --exclude '.git' --exclude '.github' \
+                   --exclude '.tmp-*' --exclude 'screenshots' ./ _site/
+          test -d "_site/server" && { echo "server/ leaked into the site"; exit 1; } || true
+          echo "Static site staged."
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # index.html lives at the repository root, so the root is the site.
-          path: "."
+          # Staged above so the API source is never published as static files.
+          path: "_site"
 
   deploy:
     needs: build

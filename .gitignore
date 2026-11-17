@@ -2,6 +2,11 @@
 node_modules/
 npm-debug.log*
 
+# API server: local database, secrets and staging output
+server/data/
+server/.env
+_site/
+
 # Local dev & verification artifacts
 .tmp-*/
 *.log

@@ -79,6 +79,7 @@ function fillOnlineRow(row, level) {
  * actions that work offline (like, save) and the two that lead somewhere real
  * (play, comments). */
 function onlineLevelPopup(scene, level) {
+    if (level && level.source === "server") return onlineServerLevelPopup(scene, level);
     var record = GD.Save.level("online:" + level.id);
     var state = GD.Online.state(level.id);
 
@@ -226,6 +227,22 @@ function OnlineScene(opts) {
             var list = null;
 
             function refreshList() {
+                if (state.category !== "saved" && GD.OnlineServer && GD.OnlineServer.active()) {
+                    /* Live provider: the same rows, but they come from the account
+                     * server. A failed request falls back to the labelled demo
+                     * rather than an empty screen. */
+                    GD.OnlineServer.search({ category: state.category, filters: state.filters })
+                        .then(function (result) {
+                            list.setItems(result.levels);
+                            if (!result.levels.length) GD.UI.toast(scene, "No levels online yet");
+                        }, function () {
+                            list.setItems(GD.Online.query({
+                                category: state.category, filters: state.filters
+                            }));
+                            GD.UI.toast(scene, "Server offline - showing the local demo");
+                        });
+                    return;
+                }
                 var items = state.category === "saved"
                     ? GD.Online.savedLevels()
                     : GD.Online.query({ category: state.category, filters: state.filters });

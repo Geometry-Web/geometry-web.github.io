@@ -751,6 +751,20 @@ var MainMenuLayer = cc.Layer.extend({
         // News.
         this.button(L.newsButton, this.onNews);
 
+        /* Account pill: the one place the menu shows who is playing. It stays a
+         * small corner control so the GD layout is untouched, and it reads the
+         * cached session instead of making a request. */
+        GD.UI.button(this, {
+            x: 872, y: 512, w: 150, h: 32, text: "ACCOUNT", style: "blue",
+            textScale: GD.UI.TEXT.tiny, z: 40,
+            onClick: this.onAccount
+        });
+        var who = GD.label(GD.Account.displayName(), {
+            scale: GD.UI.TEXT.tiny, color: GD.UI.COLOR.dim
+        });
+        who.setPosition(872, 484);
+        this.addChild(who, 40);
+
         return true;
     },
 
@@ -770,6 +784,7 @@ var MainMenuLayer = cc.Layer.extend({
     onPlay: function () { cc.Director.getInstance().replaceScene(new LevelSelectScene()); },
     onGarage: function () { cc.Director.getInstance().replaceScene(new GarageScene()); },
     onCreator: function () { cc.Director.getInstance().replaceScene(new CreatorScene()); },
+    onAccount: function () { GD.Nav.go(AccountScene()); },
     onDaily: function () { openScreen("DailyScene", "DAILY LEVEL"); },
     onNews: function () { openScreen("NewsScene", "NEWS"); },
     onAchievements: function () { openScreen("AchievementsScene", "ACHIEVEMENTS"); },
