@@ -135,3 +135,45 @@ function openShareDialog(scene, levelId, levelName, onDone) {
         ]
     });
 }
+
+/* One row layout shared by every screen in this file. */
+function socialRow(row) {
+    row.addChild(GD.UI.nine(GD.UI.PANEL.dark, 700, 54, GD.UI.PANEL_INSETS), 0);
+    row.title = GD.label("", { scale: GD.UI.TEXT.small, anchor: [0, 0.5] });
+    row.title.setPosition(-330, 9);
+    row.addChild(row.title, 1);
+    row.sub = GD.label("", { scale: GD.UI.TEXT.tiny, color: GD.UI.COLOR.dim, anchor: [0, 0.5] });
+    row.sub.setPosition(-330, -12);
+    row.addChild(row.sub, 2);
+}
+
+/* The loading line, the empty state and the virtual list, written once.
+ * `opts.endpoint(done, fail)` performs the request; `opts.onSelect` handles a
+ * tap. Returns the list handle so a caller can add its own buttons. */
+function socialList(layer, opts) {
+    var note = GD.label("LOADING", { scale: GD.UI.TEXT.small, color: GD.UI.COLOR.dim });
+    note.setPosition(GD.W / 2, 300);
+    layer.addChild(note, 20);
+
+    var list = GD.UI.list(layer, {
+        x: GD.W / 2, top: 392, count: 5, pitch: 62, height: 54,
+        build: socialRow,
+        fill: function (row, item) {
+            row.title.setString(item.title || "");
+            row.sub.setString(item.subtitle || "");
+        },
+        onSelect: opts.onSelect
+    });
+
+    opts.endpoint(function (items) {
+        note.setString(items.length ? "" : (opts.empty || "Nothing here yet."));
+        list.setItems(items);
+    }, function (error) {
+        note.setColor(GD.UI.COLOR.red);
+        note.setString(error && error.code === "network"
+            ? "Server unreachable. Try again later."
+            : (error && error.message) || "Could not load that list.");
+    });
+    return list;
+}
+

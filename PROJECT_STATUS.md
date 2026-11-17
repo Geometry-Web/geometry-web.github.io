@@ -6,8 +6,14 @@ a browser), **partial** (works, but not the full feature) or **missing**.
 
 Verification method: headless Chromium/Edge probes in `../.tmp-verify/`
 (`probe-flow.js`, `probe-sweep.js`, `probe-complete.js`, `probe-import.js`,
-`probe-mode.js`, `probe-ui.js` …) that drive the real canvas and screenshot
-960x540 frames. Nothing below is claimed without such a run.
+`probe-mode.js`, `probe-ui.js`, `probe-account.js` …) that drive the real canvas
+and screenshot 960x540 frames. Nothing below is claimed without such a run.
+
+The account stack is additionally verified two ways: `server/npm test` boots the
+real API and drives it over HTTP (33 tests), and `probe-account.js` boots the
+site in headless Edge against a live API process, registers a player through
+`GD.Account`, and opens the account, shared, friends, messages and notification
+screens with no page errors.
 
 ## 1. Shell, engine and deployment
 

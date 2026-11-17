@@ -52,7 +52,7 @@
             'src/screens/Profile.js?v=8',
             'src/screens/Colors.js?v=1',
             'src/screens/Editor.js?v=4',
-            'src/screens/Social.js?v=1',
+            'src/screens/Social.js?v=2',
             'src/screens/SocialScreens.js?v=1',
             'src/screens/Account.js?v=1',
             'src/dev/KitShowcase.js?v=1'
