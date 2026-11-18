@@ -18,7 +18,7 @@
             'src/core/GD.js?v=8',
             'src/core/Save.js?v=2',
             'src/core/Audio.js?v=1',
-            'src/core/Levels.js?v=4',
+            'src/core/Levels.js?v=5',
             'src/core/UI.js?v=5',
             'src/core/Nav.js?v=3',
             'src/core/UIList.js?v=1',
@@ -39,7 +39,7 @@
             'src/services/Online.js?v=1',
             'src/services/OnlineServer.js?v=1',
             'src/resource.js?v=29',
-            'src/MyApp.js?v=34',
+            'src/MyApp.js?v=35',
             // Screens built on the kit, on top of the menu/level select/play
             // scenes in MyApp.js.
             'src/screens/Settings.js?v=2',

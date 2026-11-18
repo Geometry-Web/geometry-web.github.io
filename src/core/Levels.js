@@ -139,7 +139,28 @@
         [11, "portal", "portal_10_front_001.png", "gravity"],
 
         // Secret coins (key 12 of the object record is the coin number).
-        [142, "coin", "secretCoin_01_001.png"]
+        [142, "coin", "secretCoin_01_001.png"],
+
+        // Speed portals: 0.5x, 1x, 2x, 3x — the value is the speeds array index
+        // (appended last so the slots of every already-baked level stay valid).
+        [200, "speed", "portal_11_front_001.png", 0],
+        [201, "speed", "portal_12_front_001.png", 1],
+        [202, "speed", "portal_13_front_001.png", 2],
+        [203, "speed", "portal_14_front_001.png", 3],
+
+        // Size portals: enter the mini cube, or go back to full size.
+        [288, "size", "portal_15_front_001.png", "mini"],
+        [289, "size", "portal_16_front_001.png", "normal"],
+
+        // Mirror portals: each flips the screen left-right, so the enter/exit
+        // pairs of the official levels read as on/off.
+        [99,  "mirror", "portal_17_front_001.png", "mirror"],
+        [100, "mirror", "portal_17_front_001.png", "mirror"],
+        [101, "mirror", "portal_17_front_001.png", "mirror"],
+
+        // Teleport portals: touching one moves the player to the other.
+        [747, "teleport", "portal_18_front_001.png", "teleport"],
+        [748, "teleport", "portal_19_front_001.png", "teleport"]
     ];
 
     /* What each kind means to the play layer. */
@@ -149,6 +170,10 @@
         orb:    { touch: "orb" },
         pad:    { touch: "pad" },
         portal: { touch: "portal" },
+        speed:  { touch: "portal" },
+        size:   { touch: "portal" },
+        mirror: { touch: "portal" },
+        teleport: { touch: "portal" },
         coin:   { touch: "coin" }
     };
 
@@ -162,7 +187,7 @@
             id: row[0],
             kind: row[1],
             frame: row[2],
-            value: row[3] || null,
+            value: row[3] === undefined ? null : row[3],
             solid: !!KINDS[row[1]].solid,
             hazard: !!KINDS[row[1]].hazard,
             touch: KINDS[row[1]].touch || null

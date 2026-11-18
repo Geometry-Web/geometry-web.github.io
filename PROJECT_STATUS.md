@@ -61,7 +61,7 @@ screens with no page errors.
 | Item | State | Notes |
 | --- | --- | --- |
 | Nine modes (cube, ship, ball, UFO, wave, robot, spider, swing, jetpack) | done | `PLAY_LAYOUT.modes`, physics per mode |
-| Gravity / speed / size / mode / mirror / teleport portals | partial | gravity + mode + speed done; size, mirror, teleport still decorative |
+| Gravity / speed / size / mode / mirror / teleport portals | done | `usePortal` dispatches on kind; mirror flips the view, size shrinks the hitbox, teleport jumps to the paired portal |
 | Orbs (yellow, blue, pink, green, red, black), pads (yellow, blue, pink) | done | `PLAY_LAYOUT.orbs/pads` |
 | Collision, camera, vertical camera, attempt counter, best % | done | `PlayLayer` |
 | Death (particles, sound, auto-retry) | done | |
@@ -117,7 +117,8 @@ stays in guest mode and says so on the account screen.
    from `server/` to be running and configured.
 4. Flight modes (ship/wave/UFO/jetpack) rest on the ground instead of clamping
    to GD's exact flight corridor.
-5. Mirror/size/teleport portals and most 2.x triggers are not implemented yet.
+5. Most 2.x triggers are not implemented yet (colour/toggle/alpha/pulse act on
+   gameplay objects).
 6. `POST /users/me/progress` accepts capped, client-reported play counters; the
    server cannot verify a run without a replay format.
 7. Real-time collaborative editing is not implemented. Sharing supports

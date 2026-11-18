@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-14",
+  "generated": "2026-11-18",
   "levels": [
     {
       "id": 1,
@@ -129,7 +129,7 @@
       "diff": 5,
       "song": "Clutterfunk",
       "file": "11-clutterfunk.json",
-      "objects": 2456,
+      "objects": 2465,
       "length": 29523,
       "coins": 3
     },
@@ -141,7 +141,7 @@
       "diff": 5,
       "song": "TheoryOfEverything",
       "file": "12-theory-of-everything.json",
-      "objects": 1925,
+      "objects": 1936,
       "length": 25515,
       "coins": 3
     },
@@ -153,7 +153,7 @@
       "diff": 5,
       "song": "Electroman",
       "file": "13-electroman-adventures.json",
-      "objects": 2409,
+      "objects": 2413,
       "length": 26085,
       "coins": 3
     },
@@ -165,7 +165,7 @@
       "diff": 6,
       "song": "Clubstep",
       "file": "14-clubstep.json",
-      "objects": 4073,
+      "objects": 4078,
       "length": 26655,
       "coins": 3
     },
@@ -177,7 +177,7 @@
       "diff": 5,
       "song": "Electrodynamix",
       "file": "15-electrodynamix.json",
-      "objects": 4901,
+      "objects": 4911,
       "length": 32775,
       "coins": 3
     },
@@ -189,7 +189,7 @@
       "diff": 5,
       "song": "HexagonForce",
       "file": "16-hexagon-force.json",
-      "objects": 4543,
+      "objects": 4552,
       "length": 31005,
       "coins": 3
     },
@@ -213,7 +213,7 @@
       "diff": 6,
       "song": "TheoryOfEverything2",
       "file": "18-theory-of-everything-2.json",
-      "objects": 5790,
+      "objects": 5812,
       "length": 28587.5,
       "coins": 3
     },
@@ -225,7 +225,7 @@
       "diff": 5,
       "song": "GeometricalDominator",
       "file": "19-geometrical-dominator.json",
-      "objects": 6299,
+      "objects": 6309,
       "length": 32115,
       "coins": 3
     },
@@ -237,7 +237,7 @@
       "diff": 6,
       "song": "Deadlocked",
       "file": "20-deadlocked.json",
-      "objects": 5800,
+      "objects": 5858,
       "length": 35295,
       "coins": 3
     },
@@ -249,7 +249,7 @@
       "diff": 5,
       "song": "Fingerdash",
       "file": "21-fingerdash.json",
-      "objects": 5606,
+      "objects": 5630,
       "length": 27165,
       "coins": 3
     },
@@ -261,7 +261,7 @@
       "diff": 5,
       "song": "Dash",
       "file": "22-dash.json",
-      "objects": 5997,
+      "objects": 6015,
       "length": 23805,
       "coins": 3
     }

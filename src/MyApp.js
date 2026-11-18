@@ -490,6 +490,9 @@ var PLAY_LAYOUT = {
     playerSize: 30,           // units: the icon is 30 units square
     hitHalf: 15,              // half width of the solid hitbox
     hazardHalf: 11,           // tighter box for spikes, like GD's generous hitbox
+    miniSize: 15,             // units: the size portal shrinks the cube to half
+    miniHalf: 8,              // half width of the mini hitbox
+    miniScale: 1,             // sprite scale for the mini cube (30px art -> 15 units)
     playHeight: 300,          // units: GD's play area is ten cells tall
     endPad: 180,              // units of runway past the last object
     viewCells: 7.5,           // cells above the ground that fit on screen
@@ -2366,6 +2369,9 @@ var PlayLayer = cc.Layer.extend({
         this._cameraY = 0;
         this._coins = [false, false, false];
         this._speedIndex = PLAY_LAYOUT.speedIndex;
+        this._mirror = false;       // mirror portal flips the screen left-right
+        this._mini = false;         // size portal shrinks the player
+        this._teleportCooldown = 0; // seconds between teleport portal uses
 
         // Pause + practice state. `_checkpoints` are the practice mode respawn
         // points, oldest first; `_paused` freezes the physics in update().
@@ -2536,6 +2542,7 @@ var PlayLayer = cc.Layer.extend({
         var speed = L.speeds[this._speedIndex] || L.speeds[L.speedIndex];
 
         this._dt = dt;
+        if (this._teleportCooldown > 0) this._teleportCooldown -= dt;
         if (this._tap) this.useOrb();
 
         this._x += speed * dt;
@@ -2597,9 +2604,11 @@ var PlayLayer = cc.Layer.extend({
 
     placePlayer: function () {
         var L = PLAY_LAYOUT;
+        var halfPx = this._mini ? L.miniSize : L.playerSize;
         this._player.setPosition(L.playerX,
-            L.groundY + (this.worldY(this._y) - this._cameraY) * L.scale + L.playerSize);
+            L.groundY + (this.worldY(this._y) - this._cameraY) * L.scale + halfPx);
         this._player.setFlippedY(this._gravity === -1);
+        this._player.setFlippedX(!!this._mirror);
     },
 
     /* Player space -> world units above the ground. */
@@ -2654,7 +2663,9 @@ var PlayLayer = cc.Layer.extend({
      */
     collide: function () {
         var L = PLAY_LAYOUT;
-        var half = L.hitHalf, size = L.playerSize, step = 7;
+        var half = this._mini ? L.miniHalf : L.hitHalf;
+        var size = this._mini ? L.miniSize : L.playerSize;
+        var step = this._mini ? 4 : 7;
         var player = { left: this._x - half, right: this._x + half,
                        bottom: this._y, top: this._y + size };
         var range = this.nearObjects(this._x, L.unit * 2);
@@ -2690,7 +2701,7 @@ var PlayLayer = cc.Layer.extend({
 
                 if (obj.def.kind === "pad") this.usePad(obj);
                 else if (obj.def.kind === "coin") this.takeCoin(obj);
-                else if (obj.def.kind === "portal") this.usePortal(obj);
+                else if (obj.def.touch === "portal") this.usePortal(obj);
             }
         }
 
@@ -2731,14 +2742,15 @@ var PlayLayer = cc.Layer.extend({
     useOrb: function () {
         var L = PLAY_LAYOUT;
         var range = this.nearObjects(this._x, L.unit + 10);
-        var size = L.playerSize;
+        var size = this._mini ? L.miniSize : L.playerSize;
+        var half = this._mini ? L.miniHalf : L.hitHalf;
 
         for (var i = range.from; i < range.to; i++) {
             var obj = this._objects[i];
             if (obj.def.kind !== "orb" || obj.taken) continue;
 
             var box = this.boxOf(obj);
-            var player = { left: this._x - L.hitHalf, right: this._x + L.hitHalf,
+            var player = { left: this._x - half, right: this._x + half,
                            bottom: this._y, top: this._y + size };
             if (!this.hits(box, player, 8)) continue;
 
@@ -2767,17 +2779,68 @@ var PlayLayer = cc.Layer.extend({
     },
 
     usePortal: function (obj) {
-        var mode = obj.def.value;
+        var kind = obj.def.kind;
+        var value = obj.def.value;
 
         obj.taken = true;
-        if (mode === "gravity") {
+
+        if (value === "gravity") {
             this.flipGravity();
+            return;
+        }
+        if (kind === "speed") {
+            this._speedIndex = typeof value === "number" ? value : PLAY_LAYOUT.speedIndex;
+            return;
+        }
+        if (kind === "size") {
+            this.setSize(value === "mini");
+            return;
+        }
+        if (kind === "mirror") {
+            this._mirror = !this._mirror;
+            this.placePlayer();
+            return;
+        }
+        if (kind === "teleport") {
+            this.teleport(obj);
             return;
         }
         // A mode portal is a toggle: it enters that mode, and the pair's other
         // half takes the player back to the cube.
-        this.setMode(this._mode === mode ? "cube" : mode);
+        this.setMode(this._mode === value ? "cube" : value);
         this._vy = Math.max(this._vy, 0);
+    },
+
+    /* Teleport portals come in pairs: touching one moves the player to the
+     * other (nearest by x), keeping mode and speed. A short cooldown stops the
+     * pair from passing the player straight back. */
+    teleport: function (source) {
+        if (this._teleportCooldown > 0) return;
+
+        var target = null, best = Infinity, i, obj;
+        for (i = 0; i < this._objects.length; i++) {
+            obj = this._objects[i];
+            if (obj === source || obj.def.kind !== "teleport") continue;
+            var distance = Math.abs(obj.x - source.x);
+            if (distance < best) { best = distance; target = obj; }
+        }
+        if (!target) return;
+
+        var L = PLAY_LAYOUT;
+        var size = this._mini ? L.miniSize : L.playerSize;
+        this._x = target.x;
+        this._y = target.y - size / 2;
+        this._teleportCooldown = 0.4;
+        this._onGround = false;
+        this.placePlayer();
+        this.layoutSprites();
+    },
+
+    /* The size portal shrinks the cube (and its hitbox) or restores full size. */
+    setSize: function (mini) {
+        this._mini = !!mini;
+        if (!this._player) return;
+        this._player.setScale(this._mini ? PLAY_LAYOUT.miniScale : PLAY_LAYOUT.scale);
     },
 
     takeCoin: function (obj) {
@@ -2819,13 +2882,18 @@ var PlayLayer = cc.Layer.extend({
             this.acquire(obj);
         }
 
+        var dir = this._mirror ? -1 : 1;
         for (i = 0; i < this._live.length; i++) {
             entry = this._live[i];
-            var x = L.playerX + (entry.obj.x - camX) * L.scale;
+            var x = L.playerX + (entry.obj.x - camX) * L.scale * dir;
             var y = L.groundY + (entry.obj.y - this._cameraY) * L.scale;
 
             entry.sprite.setPosition(x, y);
-            if (entry.fill) entry.fill.setPosition(x, y);
+            entry.sprite.setFlippedX(!!entry.obj.flipX !== !!this._mirror);
+            if (entry.fill) {
+                entry.fill.setPosition(x, y);
+                entry.fill.setFlippedX(!!entry.obj.flipX !== !!this._mirror);
+            }
         }
     },
 
@@ -3137,7 +3205,9 @@ var PlayLayer = cc.Layer.extend({
             y: this._y,
             gravity: this._gravity,
             mode: this._mode,
-            speed: this._speedIndex
+            speed: this._speedIndex,
+            mirror: this._mirror,
+            mini: this._mini
         });
 
         var marker = cc.LayerColor.create(cc.c4b(120, 255, 120, 160), 4, 40);
@@ -3167,6 +3237,9 @@ var PlayLayer = cc.Layer.extend({
         this._prevY = cp.y;
         this._gravity = cp.gravity;
         this._speedIndex = cp.speed;
+        this._mirror = !!cp.mirror;
+        this._mini = !!cp.mini;
+        this._teleportCooldown = 0;
         this._dead = false;
         this._hold = false;
         this._tap = false;
@@ -3178,7 +3251,7 @@ var PlayLayer = cc.Layer.extend({
         this._player.stopAllActions();
         this._player.setOpacity(255);
         this._player.setRotation(0);
-        this._player.setScale(PLAY_LAYOUT.scale);
+        this._player.setScale(this._mini ? PLAY_LAYOUT.miniScale : PLAY_LAYOUT.scale);
 
         this.placePlayer();
         this.layoutSprites();
@@ -3257,6 +3330,9 @@ var PlayLayer = cc.Layer.extend({
         this._finished = false;
         this._cameraY = 0;
         this._speedIndex = L.speedIndex;
+        this._mirror = false;
+        this._mini = false;
+        this._teleportCooldown = 0;
         this._coins = [false, false, false];
 
         for (i = 0; i < this._objects.length; i++) this._objects[i].taken = false;
