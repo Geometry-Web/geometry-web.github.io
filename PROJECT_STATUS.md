@@ -6,8 +6,9 @@ a browser), **partial** (works, but not the full feature) or **missing**.
 
 Verification method: headless Chromium/Edge probes in `../.tmp-verify/`
 (`probe-flow.js`, `probe-sweep.js`, `probe-complete.js`, `probe-import.js`,
-`probe-mode.js`, `probe-ui.js`, `probe-account.js` …) that drive the real canvas
-and screenshot 960x540 frames. Nothing below is claimed without such a run.
+`probe-mode.js`, `probe-ui.js`, `probe-account.js`, `probe-portals.js` …) that
+drive the real canvas and screenshot 960x540 frames. Nothing below is claimed
+without such a run.
 
 The account stack is additionally verified two ways: `server/npm test` boots the
 real API and drives it over HTTP (33 tests), and `probe-account.js` boots the
@@ -110,17 +111,18 @@ stays in guest mode and says so on the account screen.
 
 1. Official level set: the 22 main levels only (ids `1`–`22`). The 2.2
    platformer files (`3001`, `5001+`) need `node tools/level-import.js … --all`
-   and a platformer physics mode, which is still missing.
+   plus a platformer physics mode, which is still missing. A faithful port also
+   needs the 2.2 object library (slopes, moving platforms, saw blades) that
+   `Levels.parse` still drops, so the baked platformer levels come out as a
+   sparse shell.
 2. Unknown 2.x tiles are landable but never fatal from the side (see
    `docs/README.md`), because GD's object id table is not part of the level data.
 3. The simulated online browser remains for guests; live content needs the API
    from `server/` to be running and configured.
-4. Flight modes (ship/wave/UFO/jetpack) rest on the ground instead of clamping
-   to GD's exact flight corridor.
-5. Most 2.x triggers are not implemented yet (colour/toggle/alpha/pulse act on
+4. Most 2.x triggers are not implemented yet (colour/toggle/alpha/pulse act on
    gameplay objects).
-6. `POST /users/me/progress` accepts capped, client-reported play counters; the
+5. `POST /users/me/progress` accepts capped, client-reported play counters; the
    server cannot verify a run without a replay format.
-7. Real-time collaborative editing is not implemented. Sharing supports
+6. Real-time collaborative editing is not implemented. Sharing supports
    view/play/comment/copy/edit with revision checks and version history, which
    prevents silent overwrites, but there is no live co-editing session.
