@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-test/
+*.local
+.env
+server/node_modules/
+server/*.db
+server/*.db-*
+coverage/
+
+# Local Geometry Dash game installation (not part of this project)
+gdstuffs/
+install.log
+install.err
+
