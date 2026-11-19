@@ -119,9 +119,15 @@ tests/          frontend unit/integration tests
 
 ## Deployment
 
-- **Frontend**: static site (Vite output in `dist/`) — deployable to GitHub
-  Pages or any static host. Configure the API URL via `VITE_API_URL` at build
-  time (never hardcoded).
+- **Frontend**: static site — deployable to GitHub Pages or any static host.
+  `standalone.html` is the no-npm, self-contained build (game + menus + editor
+  inlined). Configure the API URL at runtime via `window.GDR_API_URL` (or build
+  with `VITE_API_URL` for the npm build).
+- **Auto-deploy**: `.github/workflows/deploy.yml` publishes `standalone.html` as
+  `index.html` to GitHub Pages on every push to `main` (no npm in CI). To enable
+  it, set the repo's **Settings → Pages → Source = "GitHub Actions"**. After
+  editing source, run `node scripts/make-standalone.mjs`, commit `standalone.html`,
+  and push.
 - **Backend**: a separate Node.js process. Configure via environment variables
   (see `server/.env.example`). Secrets live only in the server environment.
 - If the backend is unreachable, the online screen reports the error instead of
