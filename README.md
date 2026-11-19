@@ -1,5 +1,5 @@
 > [!NOTE]
-> Geometry Web is currently being remade as a Cocos2d project and is still under active development. The project is not yet complete, and some features may be unfinished or subject to change. Please report any bugs you encounter through our Discord server or the Issues page on this repository. Thank you for your support!
+> Archive. 
 
 <div align="center">
   <img
