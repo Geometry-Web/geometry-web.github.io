@@ -1,0 +1,12 @@
+{
+  "name": "gdr-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Geometry Dash Recreation backend: accounts, online levels, sharing and social features. Zero npm dependencies (Node built-ins only: http, sqlite, crypto).",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node tests/api.test.mjs"
+  }
+}

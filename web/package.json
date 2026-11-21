@@ -1,0 +1,20 @@
+{
+  "name": "geometry-dash-recreation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Geometry Dash-inspired game built from scratch with a custom TypeScript engine (WebGL 2 + Canvas2D fallback, fixed-step physics).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}
