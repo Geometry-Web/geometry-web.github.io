@@ -17,4 +17,4 @@ The installed desktop files provide a native reference for controlled play and c
 
 ## Current behavior
 
-The web edition now restores player, trigger, coin and tween state at practice checkpoints. It supports five group actions, single-object property editing, JSON exchange, local draft recovery and cube icon selection. Remaining work includes multiselect and layers, additional trigger types and song import, full rotated collision shapes and native measurement. Testing from a selection uses a fresh cube at that position. Local statistics count completed runs. The optional API has no deployment in the Pages workflow.
+The web edition now restores player, trigger, coin and tween state at practice checkpoints. It supports five group actions, single and multiple object property editing, JSON exchange, local draft recovery and cube icon selection. Remaining work includes layer locking, additional trigger types and song import, full rotated collision shapes and native measurement. Testing from a selection uses a fresh cube at that position. Local statistics count completed runs. The optional API has no deployment in the Pages workflow.

@@ -16,7 +16,9 @@ export class Editor {
   private tool = ObjId.Block;
   private mode = 'place';
   private redoStack: LevelObject[][] = [];
-  private clipboard: LevelObject | null = null;
+  private clipboard: LevelObject[] = [];
+  private selection = new Set<number>();
+  private layerView = h('input', { type: 'number', min: -1, value: -1, title: 'Visible layer (-1 shows all)', 'aria-label': 'Visible layer' });
   private title = h('input', { 'aria-label': 'Level name', maxlength: 80 });
   private status = h('output', { 'aria-live': 'polite' });
   private properties = h('div', { class: 'editor-properties' });
@@ -56,6 +58,7 @@ export class Editor {
       this.mode = isNaN(Number(palette.value)) ? palette.value : 'place';
       if (this.mode === 'place') this.tool = Number(palette.value);
     };
+    this.layerView.onchange = () => this.select(-1);
     this.title.value = this.level.name;
     this.title.onchange = () => {
       this.title.value = this.level.name = this.title.value.trim() || 'My Level';
@@ -69,14 +72,9 @@ export class Editor {
       } catch (e) { this.status.value = String(e); }
       file.value = '';
     };
-    this.bar = h('div', { class: 'editor-bar' }, this.title, palette, this.properties,
-      button('Copy', () => { if (this.selected >= 0) this.clipboard = structuredClone(this.level.objects[this.selected]); }),
-      button('Paste', () => {
-        if (!this.clipboard) return;
-        this.pushUndo();
-        this.level.objects.push({ ...structuredClone(this.clipboard), x: this.clipboard.x + 30 });
-        this.select(this.level.objects.length - 1);
-      }),
+    this.bar = h('div', { class: 'editor-bar' }, this.title, palette, h('label', {}, 'Layer filter ', this.layerView), this.properties,
+      button('Copy', () => this.copy()),
+      button('Paste', () => this.paste()),
       button('Undo', () => this.undo()), button('Redo', () => this.redo()),
       button('Save', () => void this.save()), button('New', () => {
         if (confirm('Start a new level? Save your current draft first to keep it.')) this.open(createEmptyLevel('My Level', 'You'));
@@ -100,6 +98,34 @@ export class Editor {
     return this.bar;
   }
 
+  private copy(): void {
+    this.clipboard = [...this.selection].map(i => structuredClone(this.level.objects[i]));
+  }
+
+  private paste(): void {
+    if (!this.clipboard.length) return;
+    this.pushUndo();
+    const first = this.level.objects.length;
+    for (const object of this.clipboard) this.level.objects.push({ ...structuredClone(object), x: object.x + 30 });
+    this.select(first);
+    for (let i = first + 1; i < this.level.objects.length; i++) this.select(i, true);
+  }
+
+  private onShortcut = (event: KeyboardEvent): void => {
+    if (!(event.ctrlKey || event.metaKey) || (event.target as HTMLElement)?.closest('input,select,textarea')) return;
+    const actions: Record<string, () => void> = {
+      KeyC: () => this.copy(), KeyV: () => this.paste(), KeyZ: () => event.shiftKey ? this.redo() : this.undo(),
+      KeyY: () => this.redo(), KeyS: () => void this.save(),
+    };
+    const action = actions[event.code];
+    if (action) { event.preventDefault(); action(); }
+  };
+
+  private inLayer(o: LevelObject): boolean {
+    const layer = this.layerView.valueAsNumber;
+    return !(layer >= 0) || (o.layer ?? 0) === layer;
+  }
+
   open(level: LevelData): void {
     this.level = structuredClone(level);
     this.title.value = level.name;
@@ -110,12 +136,18 @@ export class Editor {
     this.persistDraft();
   }
 
-  private select(index: number): void {
-    this.selected = index;
+  private select(index: number, extend = false): void {
+    if (!extend) this.selection.clear();
+    if (index >= 0) {
+      if (extend && this.selection.has(index)) this.selection.delete(index);
+      else this.selection.add(index);
+    }
+    this.selected = [...this.selection].at(-1) ?? -1;
+    index = this.selected;
     this.properties.replaceChildren();
     const o = this.level.objects[index];
     if (!o) return;
-    const keys = ['x', 'y', 'rotation', 'scale', 'group'];
+    const keys = ['x', 'y', 'rotation', 'scale', 'group', 'layer'];
     const params = groupParameters.get(o.id);
     if (params) keys.push(...params, 'spawnOnly');
     for (const key of keys) {
@@ -125,9 +157,15 @@ export class Editor {
         const n = field.valueAsNumber;
         if (!Number.isFinite(n) || (key === 'scale' && n <= 0)) { this.select(index); return; }
         this.pushUndo();
-        if (key === 'group') o.groups = n > 0 ? [Math.floor(n)] : [];
-        else if (key === 'x' || key === 'y' || key === 'rotation' || key === 'scale') o[key] = n;
-        else (o.props ??= {})[key] = n;
+        const offset = (key === 'x' || key === 'y' || key === 'rotation') ? n - (o[key] ?? 0) : 0;
+        for (const i of this.selection) {
+          const member = this.level.objects[i];
+          if (key === 'group') member.groups = n > 0 ? [Math.floor(n)] : [];
+          else if (key === 'layer') member.layer = Math.max(0, Math.floor(n));
+          else if (key === 'scale') member.scale = n;
+          else if (key === 'x' || key === 'y' || key === 'rotation') member[key] = (member[key] ?? 0) + offset;
+          else if (member.id === o.id) (member.props ??= {})[key] = n;
+        }
       };
       this.properties.append(h('label', {}, key, field));
     }
@@ -136,6 +174,7 @@ export class Editor {
   activate(): void {
     if (this.active) return;
     this.active = true;
+    window.addEventListener('keydown', this.onShortcut);
     this.camera.snapTo(0, 15);
     this.canvas.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('pointermove', this.onPointerMove);
@@ -145,6 +184,7 @@ export class Editor {
 
   deactivate(): void {
     this.active = false;
+    window.removeEventListener('keydown', this.onShortcut);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
@@ -176,7 +216,7 @@ export class Editor {
 
   private onPointerUp = (e: PointerEvent): void => {
     if (this.dragging) return;
-    if (this.mode === 'select') this.select(this.objectAt(e.clientX, e.clientY));
+    if (this.mode === 'select') this.select(this.objectAt(e.clientX, e.clientY), e.shiftKey);
     else if (this.mode === 'erase') this.eraseAt(e.clientX, e.clientY);
     else this.placeAt(e.clientX, e.clientY);
   };
@@ -195,7 +235,7 @@ export class Editor {
     const wx = this.snap(this.camera.worldX(clientX));
     const wy = this.snap(this.camera.worldY(clientY));
     this.pushUndo();
-    this.level.objects.push({ id: this.tool, x: wx, y: wy });
+    this.level.objects.push({ id: this.tool, x: wx, y: wy, layer: Math.max(0, this.layerView.valueAsNumber || 0) });
     this.select(this.level.objects.length - 1);
   }
 
@@ -205,6 +245,7 @@ export class Editor {
     let idx = -1;
     for (let i = 0; i < this.level.objects.length; i++) {
       const o = this.level.objects[i];
+      if (!this.inLayer(o)) continue;
       if (Math.abs(o.x - wx) < 20 && Math.abs(o.y - wy) < 20) {
         idx = i;
         break;
@@ -225,7 +266,7 @@ export class Editor {
   deleteSelected(): void {
     if (this.selected < 0 || this.selected >= this.level.objects.length) return;
     this.pushUndo();
-    this.level.objects.splice(this.selected, 1);
+    this.level.objects = this.level.objects.filter((_, i) => !this.selection.has(i));
     this.select(-1);
   }
 
@@ -297,8 +338,9 @@ export class Editor {
     }
     for (let i = 0; i < this.level.objects.length; i++) {
       const o = this.level.objects[i];
+      if (!this.inLayer(o)) continue;
       if (o.x < left || o.x > right || o.y < bottom || o.y > top) continue;
-      this.drawObject(o, i === this.selected);
+      this.drawObject(o, this.selection.has(i));
     }
   }
 

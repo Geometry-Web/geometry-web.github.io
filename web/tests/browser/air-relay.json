@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-air-relay",
+  "name": "Air Relay",
+  "description": "Jump the spike, hit the orb, then ride the pad and gravity gates through three coins.",
+  "creator": "Browser tests",
+  "difficulty": "normal",
+  "startSpeed": 1,
+  "createdAt": 0,
+  "updatedAt": 0,
+  "objects": [
+    { "id": 8, "x": 295, "y": 15 },
+    { "id": 36, "x": 305, "y": 74 },
+    { "id": 1329, "x": 369, "y": 130 },
+    { "id": 35, "x": 545, "y": 15 },
+    { "id": 1329, "x": 605, "y": 120 },
+    { "id": 13, "x": 780, "y": 45 },
+    { "id": 10, "x": 850, "y": 45 },
+    { "id": 1329, "x": 900, "y": 100 },
+    { "id": 9999, "x": 1000, "y": 15 }
+  ]
+}

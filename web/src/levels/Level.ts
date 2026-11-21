@@ -11,6 +11,7 @@ export interface LevelObject {
   y: number;
   /** Rotation in degrees, clockwise. */
   rotation?: number;
+  layer?: number;
   /** Uniform scale (default 1). */
   scale?: number;
   /** Group ids (reserved for triggers). */
@@ -89,6 +90,7 @@ export function validateLevel(data: unknown): string[] {
     }
     if (!Number.isInteger(o.id) || !ObjId[o.id]) problems.push('Unknown object type at index ' + i);
     if (o.scale !== undefined && (!Number.isFinite(o.scale) || o.scale <= 0 || o.scale > 100)) problems.push('Invalid scale at index ' + i);
+    if (o.layer !== undefined && (!Number.isInteger(o.layer) || o.layer < 0)) problems.push('Invalid layer at index ' + i);
     if (o.rotation !== undefined && !Number.isFinite(o.rotation)) problems.push('Invalid rotation at index ' + i);
     if (o.groups !== undefined && (!Array.isArray(o.groups) || !o.groups.every(n => Number.isInteger(n) && n > 0))) problems.push('Invalid groups at index ' + i);
     if (o.props !== undefined && (!o.props || typeof o.props !== 'object' || Array.isArray(o.props))) problems.push('Invalid properties at index ' + i);

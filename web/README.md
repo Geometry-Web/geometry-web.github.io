@@ -5,7 +5,7 @@ Run the browser game from the repository's **web** directory with Node.js and np
     npm ci
     npm run dev
 
-Use Space, W, Up or a pointer to control the player. Escape pauses, R restarts, and Z creates a checkpoint during practice. In the editor, choose a placement tool and click the canvas. Drag to pan and scroll to zoom. Select an object to edit its position, rotation, scale, group or trigger parameters. Save writes the level to IndexedDB. The level browser includes an Edit button for saved levels. Export and Import exchange versioned JSON files.
+Use Space, W, Up or a pointer to control the player. Escape pauses, R restarts, and Z creates a checkpoint during practice. In the editor, choose a placement tool and click the canvas. Drag to pan and scroll to zoom. Use Select object and Shift-click to extend a selection. Filter objects by layer, with -1 showing every layer. Select an object to edit its position, rotation, scale, group or trigger parameters. Save writes the level to IndexedDB. The level browser includes an Edit button for saved levels. Export and Import exchange versioned JSON files.
 
 ## Test and build
 

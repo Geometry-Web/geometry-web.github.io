@@ -1,3 +1,4 @@
+import { HorizontalIndex } from '../physics/HorizontalIndex';
 import { GroupActions, groupParameters } from './GroupActions';
 // Level runtime: ties the Player together with a level's objects.
 // Pure simulation (no DOM) so it can be unit tested.
@@ -34,7 +35,7 @@ export function blockAABB(obj: LevelObject): AABB {
 
 export function spikeAABB(obj: LevelObject): AABB {
   // Forgiving hitbox: much smaller than the visual triangle.
-  return aabb(obj.x, obj.y, 12, 16);
+  return aabb(obj.x, obj.y, 12 * (obj.scale ?? 1), 16 * (obj.scale ?? 1));
 }
 
 export function triggerAABB(obj: LevelObject): AABB {
@@ -100,6 +101,16 @@ export class LevelRuntime {
   private solids: SolidObj[] = [];
   private hazards: HazardObj[] = [];
   private triggers: TriggerObj[] = [];
+  private solidIndex = new HorizontalIndex<SolidObj>(s => s.aabb.x);
+  private hazardIndex = new HorizontalIndex<HazardObj>(s => s.aabb.x);
+  private objectIndex = new HorizontalIndex<LevelObject>(o => o.x);
+  private solidReach = BLOCK;
+  private hazardReach = BLOCK;
+
+  visibleObjects(left: number, right: number): Iterable<LevelObject> {
+    return this.objectIndex.range(left - this.solidReach, right + this.solidReach);
+  }
+
   private checkpoints: Checkpoint[] = [];
 
   private original: LevelData;
@@ -225,6 +236,11 @@ export class LevelRuntime {
   private refreshBounds(): void {
     for (const s of this.solids) s.aabb = blockAABB(s.obj);
     for (const h of this.hazards) h.aabb = spikeAABB(h.obj);
+    this.solidReach = this.solids.reduce((n, s) => Math.max(n, s.aabb.w / 2), BLOCK);
+    this.hazardReach = this.hazards.reduce((n, h) => Math.max(n, h.aabb.w / 2), BLOCK);
+    this.solidIndex.rebuild(this.solids);
+    this.hazardIndex.rebuild(this.hazards);
+    this.objectIndex.rebuild(this.level.objects);
   }
 
   private computeBounds(): WorldBounds {
@@ -233,7 +249,7 @@ export class LevelRuntime {
     const xMin = p.x - half;
     const xMax = p.x + half;
     let ceilingY: number | null = null;
-    for (const s of this.solids) {
+    for (const s of this.solidIndex.range(p.x - this.solidReach - p.size, p.x + this.solidReach + p.size)) {
       if (this.hidden.has(s.obj)) continue;
       const b = s.aabb;
       if (b.x + b.w / 2 <= xMin || b.x - b.w / 2 >= xMax) continue;
@@ -288,7 +304,7 @@ export class LevelRuntime {
   private resolveSolids(): boolean {
     const p = this.player;
     const pa = p.aabb;
-    for (const s of this.solids) {
+    for (const s of this.solidIndex.range(p.x - this.solidReach - p.size, p.x + this.solidReach + p.size)) {
       if (this.hidden.has(s.obj)) continue;
       if (!overlaps(pa, s.aabb)) continue;
       if (p.mode === GameMode.Ship || p.mode === GameMode.Wave) return true;
@@ -312,9 +328,8 @@ export class LevelRuntime {
   private checkHazards(prevX: number, prevY: number): boolean {
     const p = this.player;
     const pa = p.aabb;
-    for (const h of this.hazards) {
+    for (const h of this.hazardIndex.range(prevX - this.hazardReach - p.size, p.x + this.hazardReach + p.size)) {
       if (this.hidden.has(h.obj)) continue;
-      if (Math.abs(h.aabb.x - p.x) > 400) continue;
       if (overlaps(pa, h.aabb)) return true;
       // Swept test: player center path vs hazard expanded by the player box.
       const swept = aabb(h.aabb.x, h.aabb.y, h.aabb.w + p.size, h.aabb.h + p.size);

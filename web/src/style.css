@@ -372,3 +372,5 @@ input[type='range'] {
 .logo { font-size: clamp(32px,7vw,72px); text-align: center; }
 #level-list { max-height: 60vh; overflow: auto; }
 #game { touch-action: none; }
+
+.editor-bar input[aria-label="Visible layer"] { width: 4em; }

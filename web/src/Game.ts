@@ -585,9 +585,10 @@ export class Game {
     const top = cam.cy + cam.viewH / 2 + 60;
     const bottom = cam.cy - cam.viewH / 2 - 60;
     let visible = 0;
-    for (const o of this.level!.objects) {
+    for (const o of this.runtime!.visibleObjects(left, right)) {
       if (!this.runtime!.isVisible(o)) continue;
-      if (o.x < left || o.x > right || o.y < bottom || o.y > top) continue;
+      const extent = 45 * (o.scale ?? 1);
+      if (o.y + extent < bottom || o.y - extent > top) continue;
       visible++;
       this.drawObject(o);
     }
@@ -613,7 +614,7 @@ export class Game {
         break;
       }
       case ObjId.Spike:
-        r.fillTriangle(o.x, o.y, 30, 30, C.spike, o.rotation ?? 0);
+        r.fillTriangle(o.x, o.y, 30 * (o.scale ?? 1), 30 * (o.scale ?? 1), C.spike, o.rotation ?? 0);
         break;
       case ObjId.YellowOrb: r.fillCircle(o.x, o.y, 12, C.yellow); r.fillCircle(o.x, o.y, 5, rgba(1, 1, 1, 0.9)); break;
       case ObjId.PinkOrb: r.fillCircle(o.x, o.y, 12, C.pink); r.fillCircle(o.x, o.y, 5, rgba(1, 1, 1, 0.9)); break;

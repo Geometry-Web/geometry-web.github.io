@@ -48,4 +48,6 @@ The 40-step end-to-end acceptance sequence requires a deployed browser run. Indi
 | WebGL and Canvas rendering | Tested | Production bundle served below a subpath. Browser checks include grid pixels, viewport sizes and pause. |
 | Synthesized beat, volume and reduced motion | Implemented | Beat index follows simulation time, including restored checkpoints. Physical output latency remains unmeasured. |
 
-42 frontend cases and 6 optional API cases passed locally. The Edge suite is under `tests/browser`. Native-reference parity, a full set of triggers, dual and mirror modes, arbitrary rotated collisions, layer editing, and sustained large-level performance remain open.
+42 frontend cases and 6 optional API cases passed locally. The Edge suite is under `tests/browser`. Native-reference parity, a full set of triggers, dual and mirror modes, arbitrary rotated collisions, layer locking, and sustained large-level performance remain open.
+
+The editor supports Shift-click multiselection, batch transforms, layer filtering and clipboard shortcuts. A horizontal index limits solid, hazard and rendering queries by world position. Timed transforms currently rebuild the index while objects move. The Air Relay browser fixture exercises hazard clearance, orb, pad, mode and gravity changes, coin collection and completion.

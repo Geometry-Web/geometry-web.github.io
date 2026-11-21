@@ -199,6 +199,59 @@ class BrowserAcceptance(unittest.TestCase):
         self.action("ICON WORKSHOP").click()
         expect(self.page.locator(".icon-preview")).to_have_text("Diamond")
 
+    def test_air_relay_mechanics(self):
+        self.action("LEVEL EDITOR").click()
+        fixture = Path(__file__).with_name("air-relay.json")
+        self.page.locator("input[type=file]").set_input_files(fixture)
+        expect(self.page.get_by_label("Level name")).to_have_value("Air Relay")
+
+        # Observe the real SFX frequency ramps. The running game and its clock
+        # keep their normal inputs, timing, collisions, and audio scheduling.
+        self.page.evaluate("""() => {
+            window.effectSlides = [];
+            const original = AudioParam.prototype.exponentialRampToValueAtTime;
+            AudioParam.prototype.exponentialRampToValueAtTime = function(value, endTime) {
+                if (value > 1) window.effectSlides.push(value);
+                return original.call(this, value, endTime);
+            };
+        }""")
+        self.action("^Playtest$").click()
+        crash = self.page.get_by_text("CRASH!", exact=True)
+        expect(crash).to_be_visible()
+        expect(crash).to_be_hidden()
+        self.page.evaluate("window.effectSlides.length = 0")
+
+        # Jump as the HUD crosses 23%, then hit the airborne orb at 30%.
+        for percent in [23, 30]:
+            self.page.wait_for_function("p => parseInt(document.querySelector('.pct').textContent) >= p",
+                                        arg=percent)
+            self.page.keyboard.press("Space")
+        expect(self.page.get_by_text("LEVEL COMPLETE!", exact=True)).to_be_visible()
+        expect(self.page.get_by_text(re.compile("3/3 coins"))).to_be_visible()
+        # Jump, orb, pad, ship portal, inverted-gravity portal, in order.
+        self.assertEqual(self.page.evaluate("window.effectSlides"), [720, 990, 1040, 1200, 1200])
+        self.assertEqual(self.page.locator(".pct").inner_text(), "100%")
+        # At the finish only the player is in the central half of the screen.
+        # The ship mode has a magenta fuselage, distinct from the cyan cube.
+        png = base64.b64encode(self.page.screenshot()).decode("ascii")
+        ship_pixels = self.page.evaluate("""async data => {
+            const bitmap = new Image();
+            bitmap.src = "data:image/png;base64," + data;
+            await bitmap.decode();
+            const canvas = document.createElement("canvas");
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(bitmap, 0, 0);
+            const pixels = ctx.getImageData(460, 0, 450, canvas.height).data;
+            let count = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+                if (pixels[i] > 240 && pixels[i+1] < 110 && pixels[i+2] > 200) count++;
+            }
+            return count;
+        }""", png)
+        self.assertGreater(ship_pixels, 90, "The finished player should render in ship mode.")
+
     def test_gameplay_and_pause(self):
         self.action("PLAY$").click()
         self.action("Warmup").click()
